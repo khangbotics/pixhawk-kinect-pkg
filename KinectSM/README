@@ -1,0 +1,7 @@
+To use canonical scan matching in this package, you must have installed the csm package of the scan_tools stack:
+
+1. roscd to your ROS_PACKAGE_PATH
+2. git clone http://robotics.ccny.cuny.edu/git/ccny-ros-pkg/scan_tools.git
+3. rosmake scan_tools --rosdep-install
+
+

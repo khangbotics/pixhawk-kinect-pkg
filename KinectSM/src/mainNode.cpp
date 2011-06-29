@@ -33,16 +33,27 @@ initialized_can = false;
   CamParam_init = false;
   previousHeight = 0.0;
   totalDuration_ = 0.0;
+  notcopied = 0;
+  reset_map=false;
+  take_vicon = false;
   pclCount_    = 0;
   smMethod = 1;
+
   prevWorldToBase_.setIdentity();
   getParams();  
 
   sub = n.subscribe("camera/rgb/points", 100, &PSMpositionNode::pointCloudcallback, this);
   subInfo = n.subscribe("camera/depth/camera_info", 100, &PSMpositionNode::getInfo, this); 
   marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker",10);
-//    posePublisher_  = nh.advertise<geometry_msgs::Pose2D>(poseTopic_, 10);
+  //posePublisher_  = nh.advertise<geometry_msgs::Pose2D>(poseTopic_, 10);
   pose3DPublisher_  = n.advertise<geometry_msgs::PoseStamped>(pose3DTopic_, 10);
+  poseStampedtoMAVLINK_pub = n.advertise<geometry_msgs::PoseStamped>("/toMAVLINK/bodyPoseStamped",10);
+
+  //to fly
+  imuSubscriber = n.subscribe ("/fromMAVLINK/Imu",  10, &PSMpositionNode::imuCallback,  this);
+  viconSubscriber= n.subscribe("/fromMAVLINK/Vicon",10,&PSMpositionNode::viconCallback,this);
+  commandSubscriber= n.subscribe("/fromMAVLINK/COMMAND",10,&PSMpositionNode::commandCallback,this);
+
 }
 
 PSMpositionNode::~PSMpositionNode()
@@ -321,7 +332,13 @@ void PSMpositionNode::getMotion_can(const sensor_msgs::LaserScan& scan,  std::ve
   frameP_ = worldFrame_;
   heightLine = ransac(depthLine);
   // **** publish the new estimated pose as a tf
-   
+
+  if(take_vicon == true){
+	  prevWorldToBase_.setOrigin(btVector3(pos_vicon[0],pos_vicon[1], pos_vicon[2]));
+	  btQuaternion vicon_q(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
+	  prevWorldToBase_.setRotation(vicon_q);
+  }
+
   currWorldToBase = prevWorldToBase_ * baseToLaser_ * change * laserToBase_;
 
   if (publishTf_  ) publishTf  (currWorldToBase, scan.header.stamp);
@@ -517,8 +534,10 @@ void PSMpositionNode::pointCloudcallback(const sensor_msgs::PointCloud2& pcloud)
     }
   }
 
+
   if(smMethod==1)getMotion(hline, &verticalLine);
   if(smMethod==2)getMotion_can(hline, &verticalLine);
+
   gettimeofday(&end, NULL);
   double dur = ((end.tv_sec   * 1000000 + end.tv_usec  ) - 
                 (start.tv_sec * 1000000 + start.tv_usec)) / 1000.0;
@@ -661,7 +680,14 @@ void PSMpositionNode::getMotion(const sensor_msgs::LaserScan& scan,  std::vector
 
   
   // **** publish the new estimated pose as a tf
-   
+  if(take_vicon == true){
+	  prevWorldToBase_.setOrigin(btVector3(pos_vicon[0],pos_vicon[1], pos_vicon[2]));
+	  btQuaternion vicon_q(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
+	  prevWorldToBase_.setRotation(vicon_q);
+	  prevWorldToBase_.setIdentity();
+	  take_vicon=false;
+  }
+
   currWorldToBase = prevWorldToBase_ * baseToLaser_ * change * laserToBase_;
 
   heightLine = ransac(depthLine);
@@ -707,6 +733,7 @@ void PSMpositionNode::publishPose(const btTransform& transform, const ros::Time&
   posePublisher_.publish(pose);
 
   geometry_msgs::PoseStamped poseStmpd;
+  geometry_msgs::PoseStamped poseStmpd_mavlink;
 
   poseStmpd.header.stamp = time;
   poseStmpd.header.frame_id = poseFrame_;
@@ -729,6 +756,21 @@ void PSMpositionNode::publishPose(const btTransform& transform, const ros::Time&
   //ROS_INFO("synchronized, timestamp pose1: %f", time1_);
 
   pose3DPublisher_.publish(poseStmpd);
+  
+  poseStmpd_mavlink = poseStmpd;
+  poseStmpd_mavlink.header.frame_id = "world1";
+  poseStmpd_mavlink.header.stamp=ros::Time::now();
+  poseStmpd_mavlink.pose.position.z = -height;
+  poseStmpd_mavlink.pose.position.x = -pose.x;
+
+  rotation.setRPY(0.0, 0.0, M_PI-pose.theta);
+  poseStmpd_mavlink.pose.orientation.x = rotation.getX();
+  poseStmpd_mavlink.pose.orientation.y = rotation.getY();
+  poseStmpd_mavlink.pose.orientation.z = rotation.getZ();
+  poseStmpd_mavlink.pose.orientation.w = rotation.getW();
+
+
+  poseStampedtoMAVLINK_pub.publish(poseStmpd_mavlink);
 
 
  		//for trajectory visualization***********************************************************
@@ -772,9 +814,17 @@ void PSMpositionNode::publishPose(const btTransform& transform, const ros::Time&
 		  geometry_msgs::Point p;
 		  p = poseStmpd.pose.position;
 
+
   	 	  if(pclCount_%20==0)
 		  {
-		    points.points.push_back(p);
+  	 		if(reset_map==true){
+  	 		  points.points.resize(0);
+  	 		  line_strip.points.resize(0);
+  	 		  arrow.points.resize(0);
+  	 		  reset_map=false;
+    		}
+
+  	 		points.points.push_back(p);
 		    line_strip.points.push_back(p);
 
 		    // The line list needs two points for each line
@@ -1066,4 +1116,100 @@ m_error = m_error/sizeInliers;
   return modelParameters;
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////viconCallback()
+void PSMpositionNode::viconCallback (const geometry_msgs::PoseStamped& viconMsg)
+{
+	std::cout<<"in viconcallback"<<std::endl;
+	quat_vicon.x()=viconMsg.pose.orientation.x;
+	quat_vicon.y()=viconMsg.pose.orientation.y;
+	quat_vicon.z()=viconMsg.pose.orientation.z;
+	quat_vicon.w()=viconMsg.pose.orientation.w;
+
+	pos_vicon[0]=viconMsg.pose.position.x;
+	pos_vicon[1]=viconMsg.pose.position.y;
+	pos_vicon[2]=viconMsg.pose.position.z;
+
+
+
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////comandCallback()
+void PSMpositionNode::commandCallback (const lcm_mavlink_ros::COMMAND& commandMsg)
+{
+	ROS_INFO("in commandcallback");
+	
+	if(commandMsg.command==200)
+		take_vicon=true;
+	if(commandMsg.command==201)
+		reset_map=true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////imuCallback()
+void PSMpositionNode::imuCallback (const sensor_msgs::Imu& imuMsg)
+{
+	if(notcopied)
+	{
+	//imuMutex_.lock();
+
+		quat_imu.x()=imuMsg.orientation.x;
+		quat_imu.y()=imuMsg.orientation.y;
+		quat_imu.z()=imuMsg.orientation.z;
+		quat_imu.w()=imuMsg.orientation.w;
+
+	btQuaternion q(imuMsg.orientation.x, imuMsg.orientation.y, imuMsg.orientation.z, imuMsg.orientation.w);
+	btMatrix3x3 m(q);
+	double Roll, Pitch, Yaw;
+	m.getRPY(Roll, Pitch, Yaw);
+
+	std::cout<<"roll: "<<Roll<<"pitch: "<<Pitch<<"yaw:"<<Yaw<<std::endl;
+
+	Yaw=0;
+
+	Eigen::Matrix4f RotXRoll=Eigen::Matrix4f::Identity();
+	RotXRoll.col(1)[1]=cos(-Roll);
+	RotXRoll.col(1)[2]=-sin(-Roll);
+	RotXRoll.col(2)[1]=sin(-Roll);
+	RotXRoll.col(2)[2]=cos(-Roll);
+
+	std::cout<<"rollxroll\n"<<RotXRoll<<std::endl;
+
+	Eigen::Matrix4f RotYPitch=Eigen::Matrix4f::Identity();
+
+	RotYPitch.col(0)[0]=cos(-Pitch);
+	RotYPitch.col(0)[2]=sin(-Pitch);
+	RotYPitch.col(2)[0]=-sin(-Pitch);
+	RotYPitch.col(2)[2]=cos(-Pitch);
+	std::cout<<"rollpitch\n"<<RotYPitch<<std::endl;
+
+
+	Eigen::Matrix4f RotZYaw=Eigen::Matrix4f::Identity();
+
+	RotZYaw.col(0)[0]=cos(Yaw);
+	RotZYaw.col(0)[1]=-sin(Yaw);
+	RotZYaw.col(1)[0]=sin(Yaw);
+	RotZYaw.col(1)[1]=cos(Yaw);
+	std::cout<<"rollyaw\n"<<RotZYaw<<std::endl;
+
+
+
+	Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
+
+	Rotz.col(0)[0]=cos(M_PI/2);
+	Rotz.col(0)[1]=-sin(M_PI/2);
+	Rotz.col(1)[0]=sin(M_PI/2);
+	Rotz.col(1)[1]=cos(M_PI/2);
+
+
+	Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
+	Rotx.col(1)[1]=cos(M_PI/2);
+	Rotx.col(1)[2]=-sin(M_PI/2);
+	Rotx.col(2)[1]=sin(M_PI/2);
+	Rotx.col(2)[2]=cos(M_PI/2);
+
+
+	imuRot=Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Eigen::Matrix4f::Identity();
+	std::cout<<"imurot"<<std::endl<<imuRot<<std::endl;
+
+	}
+}
 

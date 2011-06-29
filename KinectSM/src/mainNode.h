@@ -16,7 +16,7 @@
 #include <geometry_msgs/Pose2D.h>
 #include <geometry_msgs/PoseStamped.h>
 #include "/opt/ros/diamondback/stacks/common_msgs/visualization_msgs/msg_gen/cpp/include/visualization_msgs/Marker.h"
-
+#include "/home/pixhawk/pixhawk/mavlink-ros-pkg/lcm_mavlink_ros/msg_gen/cpp/include/lcm_mavlink_ros/COMMAND.h"
 #include "psm_pose2D.h"
 
 #include <csm/csm_all.h>
@@ -38,9 +38,26 @@ class PSMpositionNode{
 
 private:
 
-   sm_params input_;
-   sm_result output_;
-   LDP prevLDPScan_;
+  //to fly
+  ros::Subscriber imuSubscriber;
+  ros::Subscriber viconSubscriber;
+  ros::Subscriber commandSubscriber;
+
+  Eigen::Quaternion<float> quat_imu;
+  Eigen::Quaternion<float> quat_vicon;
+  Eigen::Vector3f pos_vicon;
+
+  bool notcopied;
+  bool take_vicon;
+  bool reset_map;
+  Eigen::Quaternion<float> quat_rot_heli;
+  Eigen::Quaternion<float> quat_rot_keyframe;
+	Eigen::Matrix4f imuRot;
+  //
+
+  sm_params input_;
+  sm_result output_;
+  LDP prevLDPScan_;
   bool initialized_can;
 
  PolarMatcher matcher_;
@@ -70,10 +87,12 @@ ros::Publisher marker_pub;
  ros::Publisher pub_lineCloud;
  pcl::PointCloud<pcl::PointXYZ> cloud;
 
+
  ros::Subscriber scanSubscriber_;
  ros::Subscriber imuSubscriber_;
  ros::Publisher  posePublisher_;
  ros::Publisher  pose3DPublisher_;
+ ros::Publisher poseStampedtoMAVLINK_pub;
 
  tf::TransformBroadcaster tfBroadcaster_;
  tf::TransformListener    tfListener_;
@@ -134,7 +153,7 @@ int smMethod;
  double maxError_;
  int    maxIterations_;
  double stopCondition_;
-int scanmatchMethod;
+ int scanmatchMethod;
  std::string frameP_;
  std::string worldFrame_;
  std::string baseFrame_;
@@ -163,10 +182,14 @@ int scanmatchMethod;
  parameters fitline(std::vector<PSMpositionNode::depthPoint> *);
 
  double ransac(std::vector <depthPoint> *);
-void getMotion_can(const sensor_msgs::LaserScan& scan,  std::vector <depthPoint> *depthLine);
-LDP rosToLDPScan(const sensor_msgs::LaserScan& scan,
+ void getMotion_can(const sensor_msgs::LaserScan& scan,  std::vector <depthPoint> *depthLine);
+ LDP rosToLDPScan(const sensor_msgs::LaserScan& scan,
                      const geometry_msgs::Pose2D& laserPose);
-bool initializeCan(const sensor_msgs::LaserScan& scan);
+ bool initializeCan(const sensor_msgs::LaserScan& scan);
+
+ void imuCallback(const sensor_msgs::Imu& imuMsg);
+ void commandCallback (const lcm_mavlink_ros::COMMAND& commandMsg);
+ void viconCallback (const geometry_msgs::PoseStamped& viconMsg);
 
 public:
 

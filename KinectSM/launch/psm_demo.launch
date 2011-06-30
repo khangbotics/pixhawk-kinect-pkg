@@ -33,7 +33,7 @@
     args="0.0 0.0 0.0 0 3.14159 0 /world1 /world 40" />
 
   <node pkg="rviz" type="rviz" name="rviz" 
-    args="-d $(find polar_scan_matcher)/demo/psmdemo.vcg"/>
+    args="-d $(find KinectSM)/launch/psmdemo.vcg"/>
 
   <node pkg="tf" type="static_transform_publisher" name="camera_to_hkl" args="0.0 0.0 0.0 0 0 0 /base_frame /base_scan 40" />
 

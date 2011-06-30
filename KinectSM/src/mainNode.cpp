@@ -39,6 +39,16 @@ initialized_can = false;
   pclCount_    = 0;
   smMethod = 1;
 
+  //If no Vicon message...set coordinates to 0
+     quat_vicon.x()=0;
+     quat_vicon.y()=0;
+     quat_vicon.z()=0;
+     quat_vicon.w()=1;
+
+     pos_vicon[0]=0;
+     pos_vicon[1]=0;
+     pos_vicon[2]=0;
+
   prevWorldToBase_.setIdentity();
   getParams();  
 
@@ -1143,8 +1153,11 @@ void PSMpositionNode::commandCallback (const lcm_mavlink_ros::COMMAND& commandMs
 	
 	if(commandMsg.command==200)
 		take_vicon=true;
-	if(commandMsg.command==201)
+	if(commandMsg.command==201){
 		reset_map=true;
+		if(smMethod==1)smMethod=2;
+		if(smMethod==2)smMethod=1;
+		}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////imuCallback()

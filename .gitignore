@@ -12,7 +12,6 @@ CMakeFiles
 .cproject
 .project
 CMakeCache.txt
-Makefile
 KinectICP/bin*
 KinectICP/build*
 cmake_install.cmake

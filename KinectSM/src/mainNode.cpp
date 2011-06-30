@@ -48,6 +48,7 @@ initialized_can = false;
   //posePublisher_  = nh.advertise<geometry_msgs::Pose2D>(poseTopic_, 10);
   pose3DPublisher_  = n.advertise<geometry_msgs::PoseStamped>(pose3DTopic_, 10);
   poseStampedtoMAVLINK_pub = n.advertise<geometry_msgs::PoseStamped>("/toMAVLINK/bodyPoseStamped",10);
+  laserScan_pub = n.advertise<sensor_msgs::LaserScan>("base_scan", 10);	
 
   //to fly
   imuSubscriber = n.subscribe ("/fromMAVLINK/Imu",  10, &PSMpositionNode::imuCallback,  this);
@@ -448,7 +449,7 @@ bool PSMpositionNode::initializeLasermsgs(const sensor_msgs::PointCloud2& pcloud
   begin_ = width_*(height_/2)+1;
 
   hline.header = pcloud.header;
-  hline.header.frame_id  = "hkinectline";	
+  hline.header.frame_id  = "base_scan";	
   hline.ranges.resize(width_);
   hline.time_increment = 0.001; //where can i get this from?
   hline.scan_time = 1/30;
@@ -496,7 +497,7 @@ void PSMpositionNode::pointCloudcallback(const sensor_msgs::PointCloud2& pcloud)
     return;
   }
   hline.header = pcloud.header;
-  hline.header.frame_id  = "hkinectline";	
+  hline.header.frame_id  = "base_scan";	
 
   pcl::fromROSMsg (pcloud, cloud);
   std::vector <depthPoint> verticalLine;
@@ -537,6 +538,8 @@ void PSMpositionNode::pointCloudcallback(const sensor_msgs::PointCloud2& pcloud)
 
   if(smMethod==1)getMotion(hline, &verticalLine);
   if(smMethod==2)getMotion_can(hline, &verticalLine);
+
+  laserScan_pub.publish(hline); 
 
   gettimeofday(&end, NULL);
   double dur = ((end.tv_sec   * 1000000 + end.tv_usec  ) - 
@@ -684,7 +687,7 @@ void PSMpositionNode::getMotion(const sensor_msgs::LaserScan& scan,  std::vector
 	  prevWorldToBase_.setOrigin(btVector3(pos_vicon[0],pos_vicon[1], pos_vicon[2]));
 	  btQuaternion vicon_q(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
 	  prevWorldToBase_.setRotation(vicon_q);
-	  prevWorldToBase_.setIdentity();
+//	  prevWorldToBase_.setIdentity();
 	  take_vicon=false;
   }
 

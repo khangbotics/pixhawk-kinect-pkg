@@ -84,7 +84,7 @@ int begin_;
 ros::Publisher marker_pub; 
  ros::Subscriber sub;
  ros::Subscriber subInfo;
- ros::Publisher pub_lineCloud;
+ ros::Publisher laserScan_pub;
  pcl::PointCloud<pcl::PointXYZ> cloud;
 
 

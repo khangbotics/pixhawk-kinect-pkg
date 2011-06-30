@@ -774,7 +774,8 @@ void PSMpositionNode::publishPose(const btTransform& transform, const ros::Time&
   poseStmpd_mavlink.header.frame_id = "world1";
   poseStmpd_mavlink.header.stamp=ros::Time::now();
   poseStmpd_mavlink.pose.position.z = -height;
-  poseStmpd_mavlink.pose.position.x = -pose.x;
+  poseStmpd_mavlink.pose.position.x = pose.x;
+  poseStmpd_mavlink.pose.position.y = -pose.y;
 
   rotation.setRPY(0.0, 0.0, M_PI-pose.theta);
   poseStmpd_mavlink.pose.orientation.x = rotation.getX();

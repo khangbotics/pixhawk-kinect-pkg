@@ -37,7 +37,7 @@
 
   <node pkg="tf" type="static_transform_publisher" name="camera_to_hkl" args="0.0 0.0 0.0 0 0 0 /base_frame /base_scan 40" />
 
- <node pkg="polar_scan_matcher" type="mainNode" name="main" output="screen">
+ <node pkg="KinectSM" type="mainNode" name="main" output="screen">
   </node>
 
 </launch>

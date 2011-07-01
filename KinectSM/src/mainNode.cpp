@@ -800,10 +800,10 @@ void PSMpositionNode::publishPose(const btTransform& transform, const ros::Time&
   poseStmpd_mavlink.pose.position.y = -pose.y;
 
   rotation.setRPY(0.0, 0.0, -pose.theta);
-  poseStmpd_mavlink.pose.orientation.x = transform.getRotation().getX();
-  poseStmpd_mavlink.pose.orientation.y = transform.getRotation().getY();
-  poseStmpd_mavlink.pose.orientation.z = transform.getRotation().getZ();
-  poseStmpd_mavlink.pose.orientation.w = transform.getRotation().getW();
+  poseStmpd_mavlink.pose.orientation.x = rotation.getX();
+  poseStmpd_mavlink.pose.orientation.y = rotation.getY();
+  poseStmpd_mavlink.pose.orientation.z = rotation.getZ();
+  poseStmpd_mavlink.pose.orientation.w = rotation.getW();
 
 
   poseStampedtoMAVLINK_pub.publish(poseStmpd_mavlink);

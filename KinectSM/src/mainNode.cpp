@@ -1165,7 +1165,7 @@ void PSMpositionNode::viconCallback (const geometry_msgs::PoseStamped& viconMsg)
 	quat_vicon.w()=viconMsg.pose.orientation.w;
 
 	pos_vicon[0]=viconMsg.pose.position.x;
-	pos_vicon[1]=viconMsg.pose.position.y;
+	pos_vicon[1]=-viconMsg.pose.position.y;
 	pos_vicon[2]=viconMsg.pose.position.z;
 
 	isViconmsg = true;

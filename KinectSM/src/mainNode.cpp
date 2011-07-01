@@ -351,6 +351,14 @@ void PSMpositionNode::getMotion_can(const sensor_msgs::LaserScan& scan,  std::ve
 	  prevWorldToBase_.setOrigin(btVector3(pos_vicon[0],pos_vicon[1], pos_vicon[2]));
 	  btQuaternion vicon_q(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
 	  prevWorldToBase_.setRotation(vicon_q);
+	  btMatrix3x3 vicon_m(prevWorldToBase_.getRotation());
+      double vicon_roll, vicon_pitch, vicon_yaw;
+      vicon_m.getRPY(vicon_roll, vicon_pitch, vicon_yaw);
+
+      vicon_q.setRPY(vicon_roll,vicon_pitch,-vicon_yaw);
+      prevWorldToBase_.setRotation(vicon_q);
+//	  	  prevWorldToBase_.setIdentity();
+	  take_vicon=false;
   }
 
   currWorldToBase = prevWorldToBase_ * baseToLaser_ * change * laserToBase_;
@@ -719,7 +727,13 @@ void PSMpositionNode::getMotion(const sensor_msgs::LaserScan& scan,  std::vector
 	  prevWorldToBase_.setOrigin(btVector3(pos_vicon[0],pos_vicon[1], pos_vicon[2]));
 	  btQuaternion vicon_q(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
 	  prevWorldToBase_.setRotation(vicon_q);
-//	  prevWorldToBase_.setIdentity();
+	  btMatrix3x3 vicon_m(prevWorldToBase_.getRotation());
+      double vicon_roll, vicon_pitch, vicon_yaw;
+      vicon_m.getRPY(vicon_roll, vicon_pitch, vicon_yaw);
+
+      vicon_q.setRPY(vicon_roll,vicon_pitch,-vicon_yaw);
+      prevWorldToBase_.setRotation(vicon_q);
+//	  	  prevWorldToBase_.setIdentity();
 	  take_vicon=false;
   }
 

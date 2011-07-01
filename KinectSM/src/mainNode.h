@@ -47,6 +47,9 @@ private:
   Eigen::Quaternion<float> quat_vicon;
   Eigen::Vector3f pos_vicon;
 
+  bool useViconz;
+  bool initializedtoVicon;
+  bool isViconmsg;
   bool notcopied;
   bool take_vicon;
   bool reset_map;

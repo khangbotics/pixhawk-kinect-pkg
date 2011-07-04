@@ -1,7 +1,7 @@
 Background\ ColorR=0
 Background\ ColorG=0
 Background\ ColorB=0
-Fixed\ Frame=/hkinectline
+Fixed\ Frame=/base_scan
 Target\ Frame=/world
 Grid.Alpha=0.2
 Grid.Cell\ Size=1
@@ -29,8 +29,8 @@ Point\ Cloud2.Style=1
 Point\ Cloud2.Topic=/camera/rgb/points
 Point\ Cloud2..AxisAutocompute\ Value\ Bounds=1
 Point\ Cloud2..AxisAxis=2
-Point\ Cloud2..AxisMax\ Value=2.06167
-Point\ Cloud2..AxisMin\ Value=-0.970467
+Point\ Cloud2..AxisMax\ Value=2.66253
+Point\ Cloud2..AxisMin\ Value=-0.731409
 Point\ Cloud2..AxisUse\ Fixed\ Frame=1
 Point\ Cloud2..Flat\ ColorColorR=1
 Point\ Cloud2..Flat\ ColorColorG=1
@@ -65,8 +65,8 @@ TF.Update\ Interval=0
 Tool\ 2D\ Nav\ GoalTopic=goal
 Tool\ 2D\ Pose\ EstimateTopic=initialpose
 Camera\ Type=rviz::OrbitViewController
-Camera\ Config=0.891556 1.09028 8.89875 1.47909 0.0488882 -0.786208
-Property\ Grid\ State=selection=;expanded=.Global Options,TF.Enabled.TF.Frames,TF./base_frame/base_frame,TF./hkinectline/hkinectline,TF./openni_camera/openni_camera,TF./openni_depth_frame/openni_depth_frame,TF./openni_depth_optical_frame/openni_depth_optical_frame,TF./openni_rgb_frame/openni_rgb_frame,TF./openni_rgb_optical_frame/openni_rgb_optical_frame,TF./world/world,TF.Enabled.TF.Tree,TF./base_frameTree/base_frame,TF./hkinectlineTree/hkinectline,TF./openni_cameraTree/openni_camera,TF./openni_depth_frameTree/openni_depth_frame,TF./openni_depth_optical_frameTree/openni_depth_optical_frame,TF./openni_rgb_frameTree/openni_rgb_frame,TF./openni_rgb_optical_frameTree/openni_rgb_optical_frame,TF./worldTree/world,Pose.Enabled,Pose.Enabled.Pose.Shape Properties,Point Cloud2.Enabled;scrollpos=0,0;splitterpos=332,681;ispageselected=1
+Camera\ Config=1.14656 1.06528 8.89875 1.47909 0.0488882 -0.786208
+Property\ Grid\ State=selection=;expanded=.Global Options,TF./base_frame/base_frame,TF./base_scan/base_scan,TF./openni_camera/openni_camera,TF./openni_depth_frame/openni_depth_frame,TF./openni_depth_optical_frame/openni_depth_optical_frame,TF./openni_rgb_frame/openni_rgb_frame,TF./openni_rgb_optical_frame/openni_rgb_optical_frame,TF./world/world,TF./world1/world1,TF.Enabled.TF.Tree,TF./world1Tree/world1,TF./worldTree/world,TF./base_frameTree/base_frame,TF./base_scanTree/base_scan,TF./openni_cameraTree/openni_camera,TF./openni_depth_frameTree/openni_depth_frame,TF./openni_depth_optical_frameTree/openni_depth_optical_frame,TF./openni_rgb_frameTree/openni_rgb_frame,TF./openni_rgb_optical_frameTree/openni_rgb_optical_frame,Pose.Enabled,Point Cloud2.Enabled;scrollpos=0,0;splitterpos=143,287;ispageselected=1
 [Display0]
 Name=TF
 Package=rviz
@@ -85,10 +85,11 @@ Package=rviz
 ClassName=rviz::PointCloud2Display
 [TF.]
 base_frameEnabled=0
-hkinectlineEnabled=0
+base_scanEnabled=1
 openni_cameraEnabled=1
 openni_depth_frameEnabled=0
 openni_depth_optical_frameEnabled=0
 openni_rgb_frameEnabled=0
 openni_rgb_optical_frameEnabled=0
 worldEnabled=1
+world1Enabled=1

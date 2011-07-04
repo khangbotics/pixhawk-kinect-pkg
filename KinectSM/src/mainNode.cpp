@@ -37,22 +37,33 @@ initialized_can = false;
   reset_map=false;
   take_vicon = false;
   pclCount_    = 0;
-  smMethod = 1;
+  initializedtoVicon = false;
+  isViconmsg = false;
 
-  prevWorldToBase_.setIdentity();
+  //If no Vicon message...set coordinates to 0
+     quat_vicon.x()=0;
+     quat_vicon.y()=0;
+     quat_vicon.z()=0;
+     quat_vicon.w()=1;
+
+     pos_vicon[0]=0;
+     pos_vicon[1]=0;
+     pos_vicon[2]=0;
+
   getParams();  
 
-  sub = n.subscribe("camera/rgb/points", 100, &PSMpositionNode::pointCloudcallback, this);
-  subInfo = n.subscribe("camera/depth/camera_info", 100, &PSMpositionNode::getInfo, this); 
-  marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker",10);
-  //posePublisher_  = nh.advertise<geometry_msgs::Pose2D>(poseTopic_, 10);
-  pose3DPublisher_  = n.advertise<geometry_msgs::PoseStamped>(pose3DTopic_, 10);
-  poseStampedtoMAVLINK_pub = n.advertise<geometry_msgs::PoseStamped>("/toMAVLINK/bodyPoseStamped",10);
+  sub = n.subscribe("camera/rgb/points", 1, &PSMpositionNode::pointCloudcallback, this);
+  subInfo = n.subscribe("camera/depth/camera_info", 1, &PSMpositionNode::getInfo, this);
+  marker_pub = n.advertise<visualization_msgs::Marker>("visualization_marker",1);
+  //posePublisher_  = nh.advertise<geometry_msgs::Pose2D>(poseTopic_, 1);
+  pose3DPublisher_  = n.advertise<geometry_msgs::PoseStamped>(pose3DTopic_, 1);
+  poseStampedtoMAVLINK_pub = n.advertise<geometry_msgs::PoseStamped>("/toMAVLINK/bodyPoseStamped",1);
+  laserScan_pub = n.advertise<sensor_msgs::LaserScan>("base_scan", 1);
 
   //to fly
-  imuSubscriber = n.subscribe ("/fromMAVLINK/Imu",  10, &PSMpositionNode::imuCallback,  this);
-  viconSubscriber= n.subscribe("/fromMAVLINK/Vicon",10,&PSMpositionNode::viconCallback,this);
-  commandSubscriber= n.subscribe("/fromMAVLINK/COMMAND",10,&PSMpositionNode::commandCallback,this);
+  imuSubscriber = n.subscribe ("/fromMAVLINK/Imu",  1, &PSMpositionNode::imuCallback,  this);
+  viconSubscriber= n.subscribe("/fromMAVLINK/Vicon",1,&PSMpositionNode::viconCallback,this);
+  commandSubscriber= n.subscribe("/fromMAVLINK/COMMAND",1,&PSMpositionNode::commandCallback,this);
 
 }
 
@@ -83,6 +94,9 @@ void PSMpositionNode::getParams()
   if (!nh_private.getParam ("odometry_type", odometryType))
     odometryType = "none";
 
+  if (!nh_private.getParam ("scan_matching_method", smMethod))
+    smMethod = 1;
+
   if (odometryType.compare("none") == 0)
   {
     useTfOdometry_  = false;
@@ -105,7 +119,7 @@ void PSMpositionNode::getParams()
     useTfOdometry_  = false;
     useImuOdometry_ = false;
   }
-if(smMethod==1){
+
   // **** PSM parameters
 
   if (!nh_private.getParam ("min_valid_points", minValidPoints_))
@@ -118,9 +132,9 @@ if(smMethod==1){
     maxIterations_ = 20;
   if (!nh_private.getParam ("stop_condition", stopCondition_))
     stopCondition_ = 0.01;
-  }
+
   // **** CSM parameters - comments copied from algos.h (by Andrea Censi)
-  if(smMethod ==2){
+
   // Maximum angular displacement between scans
   if (!nh_private.getParam ("max_angular_correction_deg", input_.max_angular_correction_deg))
     input_.max_angular_correction_deg = 45.0;
@@ -192,7 +206,7 @@ if(smMethod==1){
   // Percentage of correspondences to consider: if 0.9,
 	// always discard the top 10% of correspondences with more error
   if (!nh_private.getParam ("outliers_maxPerc", input_.outliers_maxPerc))
-    input_.outliers_maxPerc = 0.80;
+    input_.outliers_maxPerc = 0.90;
 
   // Parameters describing a simple adaptive algorithm for discarding.
 	//  1) Order the errors.
@@ -203,10 +217,10 @@ if(smMethod==1){
 	//	4) Discard correspondences over the threshold.
 	//	This is useful to be conservative; yet remove the biggest errors.
   if (!nh_private.getParam ("outliers_adaptive_order", input_.outliers_adaptive_order))
-    input_.outliers_adaptive_order = 0.6;
+    input_.outliers_adaptive_order = 0.7;
 
   if (!nh_private.getParam ("outliers_adaptive_mult", input_.outliers_adaptive_mult))
-    input_.outliers_adaptive_mult = 1.0;
+    input_.outliers_adaptive_mult = 2.0;
 
   //If you already have a guess of the solution, you can compute the polar angle
 	//	of the points of one scan in the new position. If the polar angle is not a monotone
@@ -236,7 +250,7 @@ if(smMethod==1){
   // correspondence by 1/sigma^2
   if (!nh_private.getParam ("use_sigma_weights", input_.use_sigma_weights))
     input_.use_sigma_weights = 0;
-}
+
 
 }
 
@@ -337,6 +351,14 @@ void PSMpositionNode::getMotion_can(const sensor_msgs::LaserScan& scan,  std::ve
 	  prevWorldToBase_.setOrigin(btVector3(pos_vicon[0],pos_vicon[1], pos_vicon[2]));
 	  btQuaternion vicon_q(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
 	  prevWorldToBase_.setRotation(vicon_q);
+	  btMatrix3x3 vicon_m(prevWorldToBase_.getRotation());
+      double vicon_roll, vicon_pitch, vicon_yaw;
+      vicon_m.getRPY(vicon_roll, vicon_pitch, vicon_yaw);
+
+      vicon_q.setRPY(vicon_roll,vicon_pitch,-vicon_yaw);
+      prevWorldToBase_.setRotation(vicon_q);
+//	  	  prevWorldToBase_.setIdentity();
+	  take_vicon=false;
   }
 
   currWorldToBase = prevWorldToBase_ * baseToLaser_ * change * laserToBase_;
@@ -391,7 +413,7 @@ LDP PSMpositionNode::rosToLDPScan(const sensor_msgs::LaserScan& scan,
 
 bool PSMpositionNode::initializeCan(const sensor_msgs::LaserScan& scan)//*******************************************************************************initializeScan()
 {
-  laserFrame_ = scan.header.frame_id;
+
 
   // **** get base to laser tf
 
@@ -448,7 +470,7 @@ bool PSMpositionNode::initializeLasermsgs(const sensor_msgs::PointCloud2& pcloud
   begin_ = width_*(height_/2)+1;
 
   hline.header = pcloud.header;
-  hline.header.frame_id  = "hkinectline";	
+  hline.header.frame_id  = "base_scan";	
   hline.ranges.resize(width_);
   hline.time_increment = 0.001; //where can i get this from?
   hline.scan_time = 1/30;
@@ -495,8 +517,9 @@ void PSMpositionNode::pointCloudcallback(const sensor_msgs::PointCloud2& pcloud)
     if (init_) ROS_INFO("Lasermsgs initialized");
     return;
   }
+
   hline.header = pcloud.header;
-  hline.header.frame_id  = "hkinectline";	
+  hline.header.frame_id  = "base_scan";	
 
   pcl::fromROSMsg (pcloud, cloud);
   std::vector <depthPoint> verticalLine;
@@ -535,8 +558,29 @@ void PSMpositionNode::pointCloudcallback(const sensor_msgs::PointCloud2& pcloud)
   }
 
 
-  if(smMethod==1)getMotion(hline, &verticalLine);
-  if(smMethod==2)getMotion_can(hline, &verticalLine);
+  if(initializedtoVicon == false){
+	  if(isViconmsg == true) {
+	  prevWorldToBase_.setOrigin(btVector3(pos_vicon[0],pos_vicon[1], pos_vicon[2]));
+	  btQuaternion vicon_q(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
+	  prevWorldToBase_.setRotation(vicon_q);
+	  initializedtoVicon = true;
+	  }
+	  else{
+		  return;
+	  }
+
+  }
+
+  if(smMethod==1){
+	ROS_INFO("Using Polar Scan Matching");
+	getMotion(hline, &verticalLine);
+  }
+  if(smMethod==2){
+	ROS_INFO("Using Canonical Scan Matching");
+	getMotion_can(hline, &verticalLine);
+  }
+
+  laserScan_pub.publish(hline); 
 
   gettimeofday(&end, NULL);
   double dur = ((end.tv_sec   * 1000000 + end.tv_usec  ) - 
@@ -678,13 +722,18 @@ void PSMpositionNode::getMotion(const sensor_msgs::LaserScan& scan,  std::vector
   q.setRPY(0, 0, da);
   change.setRotation(q);
 
-  
   // **** publish the new estimated pose as a tf
   if(take_vicon == true){
 	  prevWorldToBase_.setOrigin(btVector3(pos_vicon[0],pos_vicon[1], pos_vicon[2]));
 	  btQuaternion vicon_q(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
 	  prevWorldToBase_.setRotation(vicon_q);
-	  prevWorldToBase_.setIdentity();
+	  btMatrix3x3 vicon_m(prevWorldToBase_.getRotation());
+      double vicon_roll, vicon_pitch, vicon_yaw;
+      vicon_m.getRPY(vicon_roll, vicon_pitch, vicon_yaw);
+
+      vicon_q.setRPY(vicon_roll,vicon_pitch,-vicon_yaw);
+      prevWorldToBase_.setRotation(vicon_q);
+//	  	  prevWorldToBase_.setIdentity();
 	  take_vicon=false;
   }
 
@@ -759,11 +808,13 @@ void PSMpositionNode::publishPose(const btTransform& transform, const ros::Time&
   
   poseStmpd_mavlink = poseStmpd;
   poseStmpd_mavlink.header.frame_id = "world1";
-  poseStmpd_mavlink.header.stamp=ros::Time::now();
-  poseStmpd_mavlink.pose.position.z = -height;
-  poseStmpd_mavlink.pose.position.x = -pose.x;
+  poseStmpd_mavlink.header.stamp=time;
+  //poseStmpd_mavlink.pose.position.z = -height;
+  poseStmpd_mavlink.pose.position.z = pos_vicon[2];
+  poseStmpd_mavlink.pose.position.x = pose.x;
+  poseStmpd_mavlink.pose.position.y = -pose.y;
 
-  rotation.setRPY(0.0, 0.0, M_PI-pose.theta);
+  rotation.setRPY(0.0, 0.0, -pose.theta);
   poseStmpd_mavlink.pose.orientation.x = rotation.getX();
   poseStmpd_mavlink.pose.orientation.y = rotation.getY();
   poseStmpd_mavlink.pose.orientation.z = rotation.getZ();
@@ -935,7 +986,7 @@ double PSMpositionNode::ransac( std::vector <depthPoint> *depthLine)
  
   min_inl_dist = 0.1;
   best_error = 1;
-  minNumInliers = 50;
+  minNumInliers = 100;
   srand ( time(NULL) );
   iterations = 10000;
   max_slope = 0.15;
@@ -1022,14 +1073,14 @@ double PSMpositionNode::ransac( std::vector <depthPoint> *depthLine)
       //ROS_INFO("Height: %f", ransacHeight);
     }
     else{
-      if((fabs(previousHeight-ransacHeight)/previousHeight)<0.1){
+      //if((fabs(previousHeight-ransacHeight)/previousHeight)<10){
         previousHeight = ransacHeight;
         //ROS_INFO("Height: %f", ransacHeight);
-      }
-      else {
+      //}
+      //else {
         //ROS_INFO("Change in height too big");
-        ransacHeight= previousHeight;    
-      }
+        //ransacHeight= previousHeight;
+      //}
     }
   }
   else
@@ -1040,7 +1091,10 @@ double PSMpositionNode::ransac( std::vector <depthPoint> *depthLine)
   
 
 }
-return ransacHeight;
+  ROS_INFO("Height from Ransac: %f", ransacHeight);
+  return ransacHeight;
+
+
 //ROS_INFO("ransac finished");  
 
 }
@@ -1126,22 +1180,34 @@ void PSMpositionNode::viconCallback (const geometry_msgs::PoseStamped& viconMsg)
 	quat_vicon.w()=viconMsg.pose.orientation.w;
 
 	pos_vicon[0]=viconMsg.pose.position.x;
-	pos_vicon[1]=viconMsg.pose.position.y;
+	pos_vicon[1]=-viconMsg.pose.position.y;
 	pos_vicon[2]=viconMsg.pose.position.z;
 
-
-
+	isViconmsg = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////comandCallback()
 void PSMpositionNode::commandCallback (const lcm_mavlink_ros::COMMAND& commandMsg)
 {
-	ROS_INFO("in commandcallback");
+	ROS_INFO("in commandcallback %u",commandMsg.command);
 	
-	if(commandMsg.command==200)
-		take_vicon=true;
-	if(commandMsg.command==201)
-		reset_map=true;
+	if(commandMsg.command==200){
+	  take_vicon=true;
+	  return;
+	}
+
+	if(commandMsg.command==241){
+	  //reset_map=true;
+      initializedtoVicon = false;
+	  if(smMethod==1)smMethod=2;
+	  else smMethod=1;
+	  return;
+	}
+
+	if(commandMsg.command==250){
+	  useViconz = true;
+	  return;
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////imuCallback()

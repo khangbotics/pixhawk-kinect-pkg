@@ -47,6 +47,9 @@ private:
   Eigen::Quaternion<float> quat_vicon;
   Eigen::Vector3f pos_vicon;
 
+  bool useViconz;
+  bool initializedtoVicon;
+  bool isViconmsg;
   bool notcopied;
   bool take_vicon;
   bool reset_map;
@@ -84,7 +87,7 @@ int begin_;
 ros::Publisher marker_pub; 
  ros::Subscriber sub;
  ros::Subscriber subInfo;
- ros::Publisher pub_lineCloud;
+ ros::Publisher laserScan_pub;
  pcl::PointCloud<pcl::PointXYZ> cloud;
 
 

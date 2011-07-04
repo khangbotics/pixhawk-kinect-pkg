@@ -14,9 +14,12 @@ static CvScalar colors[] =
 };
 
 
+
 //code partially copied from http://www.cs.unc.edu/~blloyd/comp290-089/fmatrix/
 void EXTRACT::RANSAC()
 {
+
+	std::cout<<"inransac"<<std::endl;
 
 
 	Eigen::Matrix4f frametrans=Eigen::Matrix4f::Identity();
@@ -50,8 +53,10 @@ void EXTRACT::RANSAC()
 	// Pass the target_indices
 
 
+	std::cout<<"befor featurecloud0"<<std::endl;
 	model->setInputTarget (FeaturePointCloud[0].makeShared(), correspondences);
 	// Create a RANSAC model
+	std::cout<<"after featurecloud0"<<std::endl;
 
 	pcl::RandomSampleConsensus<Point> sac (model, ransac_acc);
 	sac.setMaxIterations (ransac_it);
@@ -139,7 +144,12 @@ void EXTRACT::RANSAC()
 		transformation_at_least_once_computed=true;
 
 		previous_transformation=transformation_;
+
 		pcl::estimateRigidTransformationSVD(FeaturePointCloud[1],correspondences_source_good,FeaturePointCloud[0],correspondences_source_good,transformation_);
+
+		std::cout<<"transformation_"<<std::endl<<transformation_<<std::endl;
+		std::cout<<"KeyframeDataVector.at(actual_keyframe).Transformation"<<std::endl<<KeyframeDataVector.at(actual_keyframe).Transformation<<std::endl;
+		std::cout<<"actual keyframe"<<actual_keyframe<<std::endl;
 		//		if(transformation_at_least_twice_computed)
 		//		{
 		//			frametrans=keyTrans*transformation_*previous_transformation.inverse()*transformation_;
@@ -153,6 +163,39 @@ void EXTRACT::RANSAC()
 		//			//			}
 		//		}
 		transformOld=KeyframeDataVector.at(actual_keyframe).Transformation*transformation_;
+
+
+
+		//				Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
+		//
+		//				Rotz.col(0)[0]=cos(M_PI/2);
+		//				Rotz.col(0)[1]=-sin(M_PI/2);
+		//				Rotz.col(1)[0]=sin(M_PI/2);
+		//				Rotz.col(1)[1]=cos(M_PI/2);
+		//
+		//			//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
+		//			//
+		//			//	Roty.col(0)[0]=cos(-M_PI/2);
+		//			//	Roty.col(0)[2]=sin(-M_PI/2);
+		//			//	Roty.col(2)[0]=-sin(-M_PI/2);
+		//			//	Roty.col(2)[2]=cos(-M_PI/2);
+		//
+		//				Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
+		//				Rotx.col(1)[1]=cos(M_PI/2);
+		//				Rotx.col(1)[2]=-sin(M_PI/2);
+		//				Rotx.col(2)[1]=sin(M_PI/2);
+		//				Rotx.col(2)[2]=cos(M_PI/2);
+		//			Eigen::Matrix3f matrix(quat_vicon);
+		//
+		//			Eigen::Matrix4f vicontransform=Eigen::Matrix4f::Identity();
+		//
+		//			vicontransform.block<3,1>(0,3)=pos_vicon;
+		//			vicontransform.block<3,3>(0,0)=matrix;
+		//			transformOld=Rotz*Rotx*vicontransform;
+		//
+		//			std::cout<<"vicontransform:"<<std::endl<<vicontransform<<std::endl;
+		//			}
+
 
 
 	}
@@ -177,6 +220,17 @@ void EXTRACT::RANSAC()
 			transformOld=Eigen::Matrix4f::Identity();
 
 
+	}
+	if(take_vicon)
+	{
+		next_keyframe=true;
+
+		//		vicontransform.block<3,3>(0,0)=matrix;
+		transformOld=vicontransform;
+
+		std::cout<<"vicontransform:"<<std::endl<<vicontransform<<std::endl;
+
+		take_vicon=false;
 	}
 	//	if(next_keyframe)
 	//	{
@@ -214,23 +268,29 @@ void EXTRACT::publishEverything()
 
 	cameraPose_pub.publish(cameraPose);
 
-//    Eigen::Quaternion<float> quat_rot_transform;
-//    quat_rot_transform
+	//    Eigen::Quaternion<float> quat_rot_transform;
+	//    quat_rot_transform
 
 
 	heliPose.header.frame_id="/pgraph";
 	heliPose.header.stamp=ros::Time::now();
 	heliPose.pose.position.x=trans_vec[2];
 	heliPose.pose.position.y=trans_vec[0];
-	heliPose.pose.position.z=trans_vec[1];
+	if(take_vicon_z)
+	{
+		heliPose.pose.position.z=pos_vicon[2];
+		std::cout<<"taking vicon z"<<std::endl;
+	}
+	else
+		heliPose.pose.position.z=trans_vec[1];
 
 	Eigen::Quaternion<float> quat_tmp;
 	quat_tmp.w()=quat_rot.w();
 	quat_tmp.x()=quat_rot.z();
-	quat_tmp.y()=quat_rot.y();
-	quat_tmp.z()=quat_rot.x();
+	quat_tmp.y()=quat_rot.x();
+	quat_tmp.z()=quat_rot.y();
 
-	quat_tmp=quat_imu*quat_tmp;
+	//	quat_tmp=quat_imu*quat_tmp;
 
 	heliPose.pose.orientation.w=quat_tmp.w();
 	heliPose.pose.orientation.x=quat_tmp.x();
@@ -238,16 +298,18 @@ void EXTRACT::publishEverything()
 	heliPose.pose.orientation.z=quat_tmp.z();
 
 
-	//imuMutex_.lock();
-		btQuaternion q(quat_rot_heli.x(), quat_rot_heli.y(), quat_rot_heli.z(), quat_rot_heli.w());
-		btMatrix3x3 m(q);
-		std::cout<<"m:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
-				<<" "<<m.getRow(1)[0]<<" "<<m.getRow(1)[1]<<" "<<m.getRow(1)[2]<<std::endl
-				<<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
-		double Roll, Pitch, Yaw;
-		m.getRPY(Roll, Pitch, Yaw);
 
-		std::cout<<"rollend:"<<Roll<<"pitchend"<<Pitch<<"Yawend"<<Yaw<<std::endl;
+
+	//imuMutex_.lock();
+	//		btQuaternion q(quat_rot_heli.x(), quat_rot_heli.y(), quat_rot_heli.z(), quat_rot_heli.w());
+	//		btMatrix3x3 m(q);
+	//		std::cout<<"m:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
+	//				<<" "<<m.getRow(1)[0]<<" "<<m.getRow(1)[1]<<" "<<m.getRow(1)[2]<<std::endl
+	//				<<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
+	//		double Roll, Pitch, Yaw;
+	//		m.getRPY(Roll, Pitch, Yaw);
+	//
+	//		std::cout<<"rollend:"<<Roll<<"pitchend"<<Pitch<<"Yawend"<<Yaw<<std::endl;
 
 	bodyPoseStamped_pub.publish(heliPose);
 
@@ -263,20 +325,20 @@ void EXTRACT::publishEverything()
 
 	if(doSLAM)
 	{
-//SBA
-//		std::cout<<"copy points"<<SBAmap.Points.size()<<std::endl;
-//		PointCloud tmp;
-//		tmp.header.frame_id="/pgraph";
-//	for(uint i=0;i<SBAPoint.size();i++)
-//		tmp.points.push_back(SBAPoint.at(i).PointXYZ);
-//	KeyFramePoints.publish(tmp);
+		//SBA
+		//		std::cout<<"copy points"<<SBAmap.Points.size()<<std::endl;
+		//		PointCloud tmp;
+		//		tmp.header.frame_id="/pgraph";
+		//	for(uint i=0;i<SBAPoint.size();i++)
+		//		tmp.points.push_back(SBAPoint.at(i).PointXYZ);
+		//	KeyFramePoints.publish(tmp);
 
 	}
 	else
 		KeyFramePoints.publish(KeyFramePointClouds);
 
-//	for(uint i=0;i<KeyframeDataVector.size();i++)
-//		tmp+=KeyframeDataVector.at(i).Points;
+	//	for(uint i=0;i<KeyframeDataVector.size();i++)
+	//		tmp+=KeyframeDataVector.at(i).Points;
 
 	//	if(next_keyframe)
 	//	{
@@ -321,10 +383,10 @@ void EXTRACT::RANSACandTransformation()
 	//	PosEst();
 
 	time_t start_nearest=clock();
-//	if(actual_keyframe==(KeyframeDataVector.size()-1))
-		findNearestKeyframetoLastandComputeTransformation(FrameData[counter]);
-//	else
-//		findNearestKeyframetoLastandComputeTransformation(FrameData[1]);
+	//	if(actual_keyframe==(KeyframeDataVector.size()-1))
+	findNearestKeyframetoLastandComputeTransformation(FrameData[counter]);
+	//	else
+	//		findNearestKeyframetoLastandComputeTransformation(FrameData[1]);
 
 	time_t end_nearest=clock();
 	std::cout<<"time for find nearest and recompute"<<(double(end_nearest)-double(start_nearest))/double(CLOCKS_PER_SEC);
@@ -341,12 +403,12 @@ void EXTRACT::RANSACandTransformation()
 	Rotz.col(1)[0]=sin(-M_PI/2);
 	Rotz.col(1)[1]=cos(-M_PI/2);
 
-//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
-//
-//	Roty.col(0)[0]=cos(-M_PI/2);
-//	Roty.col(0)[2]=sin(-M_PI/2);
-//	Roty.col(2)[0]=-sin(-M_PI/2);
-//	Roty.col(2)[2]=cos(-M_PI/2);
+	//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
+	//
+	//	Roty.col(0)[0]=cos(-M_PI/2);
+	//	Roty.col(0)[2]=sin(-M_PI/2);
+	//	Roty.col(2)[0]=-sin(-M_PI/2);
+	//	Roty.col(2)[2]=cos(-M_PI/2);
 
 	Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
 	Rotx.col(1)[1]=cos(-M_PI/2);
@@ -357,9 +419,9 @@ void EXTRACT::RANSACandTransformation()
 	std::cout<<"transformOld"<<std::endl<<transformOld<<std::endl;
 
 	Eigen::Matrix4f tmpTrans=Rotx*Rotz*transformOld;
-//	std::cout<<"tmpTrans"<<std::endl<<tmpTrans<<std::endl;
-//	std::cout<<"rotx"<<std::endl<<Rotx<<std::endl;
-//	std::cout<<"rotz"<<std::endl<<Rotz<<std::endl;
+	//	std::cout<<"tmpTrans"<<std::endl<<tmpTrans<<std::endl;
+	//	std::cout<<"rotx"<<std::endl<<Rotx<<std::endl;
+	//	std::cout<<"rotz"<<std::endl<<Rotz<<std::endl;
 
 	rot_matrix_heli=tmpTrans.block<3,3>(0,0);
 	trans_vec_heli=tmpTrans.block<3,1>(0,3);
@@ -406,7 +468,7 @@ void EXTRACT::RANSACandTransformation()
 
 	//	if(showDisplay)
 	//	{
-	//		std::cout<<"correspondences_inliers.size()"<<correspondences_inliers.size()<<std::endl;
+	std::cout<<"correspondences_inliers.size() RANSACINLIERS"<<correspondences_inliers.size()<<std::endl;
 	//		for(uint i=0;i<correspondences_inliers.size();i++)
 	//		{
 	//			//				push_back_point.x=kinectCloud[0].at(kpts[0][matches_popcount[correspondences_matches[correspondences_inliers[i]]].queryIdx].pt.x,kpts[0][matches_popcount[correspondences_matches[correspondences_inliers[i]]].queryIdx].pt.y).x;
@@ -451,34 +513,38 @@ void EXTRACT::matchFeature(cv::Mat &dtors0,cv::Mat&dtors1,	vector<cv::DMatch> &m
 
 EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, int keyframe_inliers, bool time, bool slam,int ignored, int near_keyframe_inliers, int swaps)
 {
+	take_vicon_z=swaps;
+	take_initial_vicon=false;
+	take_vicon=false;
+	reset_map=false;
 
 	notcopied=1;
 
 
-//	keyframeforreprojection=descFact;
+	//	keyframeforreprojection=descFact;
 	swap_counter=0;
 	number_of_swaps=swaps;
 	slammed=0;
 	nearest_keyframe_inliers=near_keyframe_inliers;
 	//SBA stuff
-//	maxx=640;
-//	maxy=480;
-//	project_counter=0;
+	//	maxx=640;
+	//	maxy=480;
+	//	project_counter=0;
 
-//	   data: [ 5.3348048003299175e+002, 0., 3.0105335457784764e+002, 0.,
-//	       5.3278657977389139e+002, 2.5844968495210247e+002, 0., 0., 1. ]
+	//	   data: [ 5.3348048003299175e+002, 0., 3.0105335457784764e+002, 0.,
+	//	       5.3278657977389139e+002, 2.5844968495210247e+002, 0., 0., 1. ]
 
-//	   	cam_params.fx = 525; // Focal length in x
-//	   	cam_params.fy = 525; // Focal length in y
-//	   	cam_params.cx = 319.5; // X position of principal point
-//	   	cam_params.cy = 239.5; // Y position of principal point
-//	   	cam_params.tx = 0;   // Baseline (no baseline since this is monocular)
+	//	   	cam_params.fx = 525; // Focal length in x
+	//	   	cam_params.fy = 525; // Focal length in y
+	//	   	cam_params.cx = 319.5; // X position of principal point
+	//	   	cam_params.cy = 239.5; // Y position of principal point
+	//	   	cam_params.tx = 0;   // Baseline (no baseline since this is monocular)
 
-//		cam_params.fx = 533;//48048003299175e+002; // Focal length in x
-//		cam_params.fy = 528;//8657977389139e+002; // Focal length in y
-//		cam_params.cx = 301;//05335457784764e+002; // X position of principal point
-//		cam_params.cy = 258;//44968495210247e+002; // Y position of principal point
-//		cam_params.tx = 0;   // Baseline (no baseline since this is monocular)
+	//		cam_params.fx = 533;//48048003299175e+002; // Focal length in x
+	//		cam_params.fy = 528;//8657977389139e+002; // Focal length in y
+	//		cam_params.cx = 301;//05335457784764e+002; // X position of principal point
+	//		cam_params.cy = 258;//44968495210247e+002; // Y position of principal point
+	//		cam_params.tx = 0;   // Baseline (no baseline since this is monocular)
 
 
 
@@ -585,16 +651,19 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 	KeyFrameMarkers=n.advertise<nav_msgs::Odometry>("/mainSLAM/keyframemarkers",1);
 	SeenKeyFramePoints=n.advertise<PointCloud>("/mainSLAM/seenkeyframepoints",1);
 	//SBA
-//	transformedCloud=n.advertise<PointCloud>("mainSLAM/transformed",1);
+	//	transformedCloud=n.advertise<PointCloud>("mainSLAM/transformed",1);
 	//SBA
-//	cam_marker_pub = n.advertise<visualization_msgs::Marker>("/mainSLAM/cameras", 1);
+	//	cam_marker_pub = n.advertise<visualization_msgs::Marker>("/mainSLAM/cameras", 1);
 
-//	camSBA_marker_pub = n.advertise<visualization_msgs::Marker>("/mainSLAM/camerasSBA", 1);
-//	pointSBA_marker_pub = n.advertise<visualization_msgs::Marker>("/mainSLAM/pointsSBA", 1);
-//	camSBA_marker_pub_preSBA = n.advertise<visualization_msgs::Marker>("/mainSLAM/cameras_preSBA", 1);
-//	pointSBA_marker_pub_preSBA = n.advertise<visualization_msgs::Marker>("/mainSLAM/points_preSBA", 1);
+	//	camSBA_marker_pub = n.advertise<visualization_msgs::Marker>("/mainSLAM/camerasSBA", 1);
+	//	pointSBA_marker_pub = n.advertise<visualization_msgs::Marker>("/mainSLAM/pointsSBA", 1);
+	//	camSBA_marker_pub_preSBA = n.advertise<visualization_msgs::Marker>("/mainSLAM/cameras_preSBA", 1);
+	//	pointSBA_marker_pub_preSBA = n.advertise<visualization_msgs::Marker>("/mainSLAM/points_preSBA", 1);
 
+	//to fly
 	imuSubscriber = n.subscribe ("/fromMAVLINK/Imu",  1, &EXTRACT::imuCallback,  this);
+	viconSubscriber= n.subscribe("/fromMAVLINK/Vicon",1,&EXTRACT::viconCallback,this);
+	commandSubscriber= n.subscribe("/fromMAVLINK/COMMAND",1,&EXTRACT::commandCallback,this);
 
 
 	sync.registerCallback(&EXTRACT::callback,this);
@@ -607,7 +676,48 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 
 		if(called==1)
 		{
-//			ros::spinOnce();
+			if(reset_map)
+					{
+
+						std::cout<<"resetting map!!!"<<std::endl;
+						counter=0;
+						next_keyframe=false;
+						reset_map=false;
+						KeyframeDataVector.clear();
+						path.poses.clear();
+						notcopied=true;
+						callback_counter=0;
+//						called=0;
+						actual_keyframe=0;
+						compute_counter=0;
+						computed=0;
+						transformation_at_least_once_computed=false;
+						transformation_at_least_twice_computed=false;
+						colored_pointcloud=false;
+
+
+						averageNumberOfCorrespondences=0;
+						averageTime=0;
+
+						countOfBadCorrespondences=0;
+
+						transformOld=vicontransform;
+
+
+						compute_transform_success=1;
+
+
+
+						called_first_time=true;
+						take_vicon=true;
+
+						take_initial_vicon=true;
+
+
+
+					}
+			else{
+			//			ros::spinOnce();
 
 			if(showTime)
 			{
@@ -620,6 +730,8 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 				counter=0;
 			else
 				counter=1;
+
+			std::cout<<"counter:"<<counter<<std::endl;
 
 			//			std::cout<<"counter and calledfirst"<<counter<<",<"<<called_first_time<<std::endl;
 			cvCopy(callback_image,cv_image[counter]);
@@ -715,10 +827,26 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 				FrameData[counter].Descriptor=dtors[counter];
 				FrameData[counter].Keypoints=kpts[counter];
 				FrameData[counter].KinectCloud=kinectCloud[counter];
+				std::cout<<"counter:"<<counter<<std::endl;
+				std::cout<<"take_initial_vicon:"<<take_initial_vicon<<std::endl;
 				if(counter==0)
 				{
-					FrameData[counter].Transformation=Eigen::Matrix4f::Identity();//imuRot
-					notcopied=0;
+					if(take_initial_vicon)
+					{
+						std::cout<<"vicontransform"<<vicontransform<<std::endl;
+						FrameData[counter].Transformation=vicontransform;//imuRot;
+						std::cout<<"copying 0 if"<<std::endl;
+
+					}
+					else
+					{
+//						while(notcopied)
+//							cvWaitKey(30);
+						std::cout<<"vicontransform"<<vicontransform<<std::endl;
+
+						std::cout<<"copying 0 esle"<<std::endl;
+						FrameData[counter].Transformation=vicontransform;//;Eigen::Matrix4f::Identity();//imuRot;
+					}
 					KeyframeDataVector.push_back(FrameData[counter]);
 					PointCloud tmp;
 					tmp.header.frame_id="/pgraph";
@@ -728,13 +856,13 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 					trans_vec_keyframe=KeyframeDataVector.at(KeyframeDataVector.size()-1).Transformation.block<3,1>(0,3);
 					quat_rot_keyframe=quat_test;
 					//Publish Camera poses for SBA
-//					KeyFrameMarker.pose.pose.orientation.w=quat_rot_keyframe.w();
-//					KeyFrameMarker.pose.pose.orientation.x=quat_rot_keyframe.x();//+cos(M_PI/2.0);
-//					KeyFrameMarker.pose.pose.orientation.y=quat_rot_keyframe.y();//-cos(M_PI/2.0);
-//					KeyFrameMarker.pose.pose.orientation.z=quat_rot_keyframe.z();//+cos(M_PI/2.0);
-//					KeyFrameMarker.pose.pose.position.x=trans_vec_keyframe[0];
-//					KeyFrameMarker.pose.pose.position.y=trans_vec_keyframe[1];
-//					KeyFrameMarker.pose.pose.position.z=trans_vec_keyframe[2];
+					//					KeyFrameMarker.pose.pose.orientation.w=quat_rot_keyframe.w();
+					//					KeyFrameMarker.pose.pose.orientation.x=quat_rot_keyframe.x();//+cos(M_PI/2.0);
+					//					KeyFrameMarker.pose.pose.orientation.y=quat_rot_keyframe.y();//-cos(M_PI/2.0);
+					//					KeyFrameMarker.pose.pose.orientation.z=quat_rot_keyframe.z();//+cos(M_PI/2.0);
+					//					KeyFrameMarker.pose.pose.position.x=trans_vec_keyframe[0];
+					//					KeyFrameMarker.pose.pose.position.y=trans_vec_keyframe[1];
+					//					KeyFrameMarker.pose.pose.position.z=trans_vec_keyframe[2];
 
 					KeyFrameMarker.header.frame_id="/pgraph";//kinectCloud[0].header.frame_id;
 					KeyFrameMarker.header.stamp=ros::Time::now();
@@ -817,31 +945,31 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 					//					}
 					if(doSLAM&&slammed==0)
 					{
-//						slammed=1;
-//						//Publish Camera poses for SBA
-//						camera_pos.pose.orientation.x=quat_rot.x()/quat_rot.w();
-//						camera_pos.pose.orientation.y=quat_rot.y()/quat_rot.w();
-//						camera_pos.pose.orientation.z=quat_rot.z()/quat_rot.w();
-//						camera_pos.header.frame_id="/pgraph";
-//						ros::Time tstamp=ros::Time::now();
-//						camera_pos.header.stamp=tstamp;
-//						camera_pos.type=visualization_msgs::Marker::CUBE;
-//						camera_pos.scale.x=1;
-//						camera_pos.scale.y=1;
-//						camera_pos.scale.z=1;
-//						camera_pos.pose.position.x=trans_vec[0];
-//						camera_pos.pose.position.y=trans_vec[1];
-//						camera_pos.pose.position.z=trans_vec[2];
-//						camera_pos.ns = "my_namespace";
-//						camera_pos.id = 0;
-//						camera_pos.color.a = 1.0f;
-//						camera_pos.color.r = 0.0f;
-//						camera_pos.color.g = 1.0f;
-//						camera_pos.color.b = 0.0f;
-//						cam_marker_pub.publish(camera_pos);
-//						transformPointcloud();
-////						transformedCloud.publish(kinectCloud[0]);
-//						std::cout<<"pulished the slam stuff"<<std::endl;
+						//						slammed=1;
+						//						//Publish Camera poses for SBA
+						//						camera_pos.pose.orientation.x=quat_rot.x()/quat_rot.w();
+						//						camera_pos.pose.orientation.y=quat_rot.y()/quat_rot.w();
+						//						camera_pos.pose.orientation.z=quat_rot.z()/quat_rot.w();
+						//						camera_pos.header.frame_id="/pgraph";
+						//						ros::Time tstamp=ros::Time::now();
+						//						camera_pos.header.stamp=tstamp;
+						//						camera_pos.type=visualization_msgs::Marker::CUBE;
+						//						camera_pos.scale.x=1;
+						//						camera_pos.scale.y=1;
+						//						camera_pos.scale.z=1;
+						//						camera_pos.pose.position.x=trans_vec[0];
+						//						camera_pos.pose.position.y=trans_vec[1];
+						//						camera_pos.pose.position.z=trans_vec[2];
+						//						camera_pos.ns = "my_namespace";
+						//						camera_pos.id = 0;
+						//						camera_pos.color.a = 1.0f;
+						//						camera_pos.color.r = 0.0f;
+						//						camera_pos.color.g = 1.0f;
+						//						camera_pos.color.b = 0.0f;
+						//						cam_marker_pub.publish(camera_pos);
+						//						transformPointcloud();
+						////						transformedCloud.publish(kinectCloud[0]);
+						//						std::cout<<"pulished the slam stuff"<<std::endl;
 
 
 					}
@@ -855,6 +983,8 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 
 					if(showTime)
 						start_time=clock();
+
+
 					if(next_keyframe)
 					{
 						swap();
@@ -876,6 +1006,7 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 						end_time=clock();
 						std::cout<<"time for swapping:\t"<<(float(end_time)-float(start_time))/CLOCKS_PER_SEC<<std::endl;
 					}
+
 				}
 				if(showTime)
 				{
@@ -885,6 +1016,8 @@ EXTRACT::EXTRACT(bool displ,float thresh, int iterations, int minimal_inliers, i
 			}
 			//ROS_INFO("waiting for next image... bad corresp. until now:%d",countOfBadCorrespondences);
 		}
+		}
+
 	}
 
 	spinner.stop();
@@ -950,235 +1083,235 @@ void EXTRACT::swap()
 	std::cout<<"doslam:"<<doSLAM<<std::endl;
 	if(doSLAM)
 	{
-//		//		std::cout<<"size of correspond"<<correspondences_outliers.size()<<std::endl;
-//		//		std::cout<<"size of matches"<<matches_popcount.size()<<std::endl;
-//		//		std::cout<<"size of tmp"<<tmp.size()<<std::endl;
-//		//compute sbadata
-//		PointCloud tmpsbapointcloud;
-//		tmpsbapointcloud.header.frame_id="/pgraph";
-//		cv::Mat dtorstmp;
-//		dtorstmp.flags=dtors[counter].flags;
-//		dtorstmp.dims=dtors[counter].dims;
-//		dtorstmp.cols=dtors[counter].cols;
-//		dtorstmp.step[0]=dtors[counter].step[0];
-//		dtorstmp.step[1]=dtors[counter].step[1];
-////		std::cout<<"before pushing back inliers size of keyframe"<<KeyframeDataVector.size()<<std::endl;
-//
-//		struct mapPoint tmp;
-//		std::vector<int> tmp_camera (3);
-//		struct FrameData OldData=KeyframeDataVector.at(KeyframeDataVector.size()-2);
-//		struct FrameData NewData=KeyframeDataVector.at(KeyframeDataVector.size()-1);
-//
-//		pcl::transformPointCloud(OldData.Points,OldData.Points,OldData.Transformation);
-//		pcl::transformPointCloud(NewData.Points,NewData.Points,NewData.Transformation);
-//
-//		if(KeyframeDataVector.size()==2)
-//			for(uint q=0;q<correspondences_inliers.size();q++)
-//			{
-//				tmp.cameras.clear();
-//				//				std::cout<<"1"<<std::endl;
-//				//				tmp.PointXYZ=KeyframeDataVector.at(second_last).Points.points.at(KeyframeDataVector.at(KeyframeDataVector.size()-2)).matches_backward.at(correspondences_inliers.at(q).queryIdx);
-//				tmp.PointXYZ=OldData.Points.points.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).queryIdx);
-//				tmp_camera[0]=0;
-//				tmp_camera[1]=OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).queryIdx).pt.x;
-//				tmp_camera[2]=OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).queryIdx).pt.y;
-//
-//				circle.x=tmp_camera[1];
-//				circle.y=tmp_camera[2];
-//				cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
-//
-//				tmp.cameras.push_back(tmp_camera);
-//				tmp_camera[0]=1;
-//				tmp_camera[1]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).trainIdx).pt.x;
-//				tmp_camera[2]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).trainIdx).pt.y;
-//				circle.x=tmp_camera[1];
-//				circle.y=tmp_camera[2]+480;
-//				cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
-//				tmp.cameras.push_back(tmp_camera);
-//				tmp.identifier=NewData.matches_backward.at(NewData.correspondences_backward.at(q)).trainIdx;
-//				SBAPoint.push_back(tmp);
-//			}
-//
-//		int sizeofSBAPoint=SBAPoint.size();
-//		std::vector<int> updated_points(sizeofSBAPoint,0);
-////		std::cout<<"updatedpoints size"<<updated_points.size();
-//		//		std::cout<<"sbapoint.size()"<<SBAPoint.size()<<std::endl;
-//		if(KeyframeDataVector.size()>2)
-//		{
-////			std::cout<<"2"<<std::endl;
-//
-//
-//			for(uint w=0;w<NewData.correspondences_backward.size();w++)
-//			{
-//				bool new_inlier=true;
-//				for(uint q=0;q<sizeofSBAPoint;q++)
-//					if(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx==SBAPoint.at(q).identifier)
-//					{
-//						if(SBAPoint.at(q).cameras.at(SBAPoint.at(q).cameras.size()-1).at(0)!=KeyframeDataVector.size()-1)
-//						{
-//							tmp.cameras.clear();
-//							tmp_camera[0]=KeyframeDataVector.size()-1;
-//							tmp_camera[1]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx).pt.x;
-//							tmp_camera[2]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx).pt.y;
-//							circle.x=tmp_camera[1];
-//							circle.y=tmp_camera[2]+480;
-//							cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
-//							SBAPoint.at(q).cameras.push_back(tmp_camera);
-//							SBAPoint.at(q).identifier=NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx;
-//							updated_points.at(q)=1;
-//						}
-//						new_inlier=false;
-//
-//					}
-////				std::cout<<"3"<<std::endl;
-//
-//				if(new_inlier)
-//				{
-//					tmp.cameras.clear();
-//					tmp_camera[0]=KeyframeDataVector.size()-2;
-////					std::cout<<"herlor0"<<std::endl;
-////					std::cout<<"NewData.correspondences_backward.at(w)"<<NewData.correspondences_backward.at(w)<<std::endl;
-////					std::cout<<"NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx"<<NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx<<std::endl;
-////					std::cout<<"OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx).pt.x"<<std::endl;
-//					tmp_camera[1]=OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx).pt.x;
-//					tmp_camera[2]=OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx).pt.y;
-//					circle.x=tmp_camera[1];
-//					circle.y=tmp_camera[2];
-//					cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
-//					tmp.cameras.push_back(tmp_camera);
-//					tmp_camera[0]=KeyframeDataVector.size()-1;
-////					std::cout<<"herlor0.5"<<std::endl;
-//
-//					tmp_camera[1]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx).pt.x;
-//					tmp_camera[2]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx).pt.y;
-//					circle.x=tmp_camera[1];
-//					circle.y=tmp_camera[2]+480;
-//					cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
-//					tmp.cameras.push_back(tmp_camera);
-//					tmp.PointXYZ=OldData.Points.points.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx);
-////					std::cout<<"herlor"<<std::endl;
-//					tmp.identifier=NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx;
-////					std::cout<<"herlor2"<<std::endl;
-//
-//					SBAPoint.push_back(tmp);
-//				}
-//
-////				std::cout<<"4"<<std::endl;
-//
-//			}
-//
-//			std::cout<<"size of sba"<<SBAPoint.size()<<std::endl;
-//			//			std::cout<<"size of updated"<<updated_points.size()<<std::endl;
-//
-//			for(uint a=0;a<updated_points.size();a++)
-//				if(updated_points.at(a)==0)
-//				{
-//					//					std::cout<<"a:"<<a<<std::endl;
-//					SBAPoint.at(a).identifier=100000;
-//				}
-//
-//			//			std::cout<<"5"<<std::endl;
-//
-//		}
-//
-////		PointCloud SBAPointCloud;
-////		SBAPointCloud.header.frame_id="/pgraph";
-////
-////		for(uint t=0;t<SBAPoint.size();t++)
-////		{
-////			SBAPointCloud.points.push_back(SBAPoint.at(t).PointXYZ);
-////			if(t%50==0)
-////			{
-////				if(SBAPoint.at(t).cameras.size()>2)
-////				{
-////					std::cout<<"sbapoint.cameras:"<<std::endl;
-////					for(uint k=0;k<SBAPoint.at(t).cameras.size();k++)
-////					{
-////						std::cout<<"k:"<<k<<std::endl;
-////						std::cout<<"cameras.at(k).at(0)"<<SBAPoint.at(t).cameras[k][0]<<std::endl;
-////					}
-////				}
-////				else
-////					std::cout<<"only two at t:"<<t<<std::endl;
-////
-////			}
-////		}
-////
-////		KeyFramePoints.publish(SBAPointCloud);
-////		std::cout<<"size of keyframes:"<<KeyframeDataVector.size()<<std::endl;
-//
-//
-//
-//
-//		//		//		else
-//		//			new_inliers=correspondences_inliers;
-//		//		std::cout<<"keyframedatavector.size():"<<KeyframeDataVector.size()<<std::endl;
-//		//		for(uint i=0;i<new_inliers.size();i++)
-//		//		{
-//		//			//			std::cout<<"corres.at"<<correspondences_outliers.at(i)<<std::endl;
-//		//			//			std::cout<<"heiho1"<<std::endl;
-//		//			tmpsbapointcloud.points.push_back(tmp.points.at(matches_popcount[new_inliers.at(i)].trainIdx));
-//		//			//			SBAmap.Points.points.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Points.points.at(matches_popcount[correspondences_outliers.at(i)].trainIdx));
-//		//			//			std::cout<<"heiho2"<<std::endl;
-//		//			dtorstmp.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor.row(matches_popcount[new_inliers.at(i)].trainIdx));
-//		//			//			std::cout<<"i:"<<i<<std::endl;
-//		//		}
-//		//
-//		//
-//		//		prev_corresp=correspondences_inliers;
-//		//		prev_matches=matches_popcount;
-//
-//
-//		//		SBAmap.Descriptor.push_back(dtorstmp);//KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor);
-//		//		//			//		pcl::transformPointCloud(tmpsbapointcloud,tmpsbapointcloud,KeyframeDataVector.at(KeyframeDataVector.size()-1).Transformation);
-//		//		SBAmap.Points.push_back(tmpsbapointcloud);
-//		//					SBAmap.Descriptor.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor);//KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor);
-//		//		pcl::transformPointCloud(tmpsbapointcloud,tmpsbapointcloud,KeyframeDataVector.at(KeyframeDataVector.size()-1).Transformation);
-//		//					SBAmap.Points.push_back(tmp);
-//
-//		//		for(uint i=0;i<correspondences_inliers.size();i++)
-//		//		{
-//		//			//			std::cout<<"corres.at"<<correspondences_outliers.at(i)<<std::endl;
-//		//			//			std::cout<<"heiho1"<<std::endl;
-//		//			SBAmap.Points.points.push_back(tmp.points.at(matches_popcount[correspondences_inliers.at(i)].trainIdx));
-//		////			SBAmap.Points.points.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Points.points.at(matches_popcount[correspondences_outliers.at(i)].trainIdx));
-//		//			//			std::cout<<"heiho2"<<std::endl;
-//		//			SBAmap.Descriptor.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor.row(matches_popcount[correspondences_outliers.at(i)].trainIdx));
-//		//			//			std::cout<<"i:"<<i<<std::endl;
-//		//		}
-//
-//		//Publish Camera poses for SBA
-//		camera_pos.pose.orientation.x=quat_rot.x()/quat_rot.w();
-//		camera_pos.pose.orientation.y=quat_rot.y()/quat_rot.w();
-//		camera_pos.pose.orientation.z=quat_rot.z()/quat_rot.w();
-//		camera_pos.header.frame_id="/pgraph";
-//		ros::Time tstamp=ros::Time::now();
-//		camera_pos.header.stamp=tstamp;
-//		camera_pos.type=visualization_msgs::Marker::CUBE;
-//		camera_pos.scale.x=1;
-//		camera_pos.scale.y=1;
-//		camera_pos.scale.z=1;
-//		camera_pos.pose.position.x=trans_vec[0];
-//		camera_pos.pose.position.y=trans_vec[1];
-//		camera_pos.pose.position.z=trans_vec[2];
-//		camera_pos.ns = "my_namespace";
-//		camera_pos.id = 0;
-//		camera_pos.color.a = 1.0f;
-//		camera_pos.color.r = 0.0f;
-//		camera_pos.color.g = 1.0f;
-//		camera_pos.color.b = 0.0f;
-//		cam_marker_pub.publish(camera_pos);
-//		transformPointcloud();
-////		transformedCloud.publish(kinectTransformedOld);
-//		std::cout<<"pulished the slam stuff"<<std::endl;
-//		swap_counter++;
-//
-//		if(swap_counter>number_of_swaps)
-//		{
-//			doSBAwithMap();
-//		}
-//
-//
+		//		//		std::cout<<"size of correspond"<<correspondences_outliers.size()<<std::endl;
+		//		//		std::cout<<"size of matches"<<matches_popcount.size()<<std::endl;
+		//		//		std::cout<<"size of tmp"<<tmp.size()<<std::endl;
+		//		//compute sbadata
+		//		PointCloud tmpsbapointcloud;
+		//		tmpsbapointcloud.header.frame_id="/pgraph";
+		//		cv::Mat dtorstmp;
+		//		dtorstmp.flags=dtors[counter].flags;
+		//		dtorstmp.dims=dtors[counter].dims;
+		//		dtorstmp.cols=dtors[counter].cols;
+		//		dtorstmp.step[0]=dtors[counter].step[0];
+		//		dtorstmp.step[1]=dtors[counter].step[1];
+		////		std::cout<<"before pushing back inliers size of keyframe"<<KeyframeDataVector.size()<<std::endl;
+		//
+		//		struct mapPoint tmp;
+		//		std::vector<int> tmp_camera (3);
+		//		struct FrameData OldData=KeyframeDataVector.at(KeyframeDataVector.size()-2);
+		//		struct FrameData NewData=KeyframeDataVector.at(KeyframeDataVector.size()-1);
+		//
+		//		pcl::transformPointCloud(OldData.Points,OldData.Points,OldData.Transformation);
+		//		pcl::transformPointCloud(NewData.Points,NewData.Points,NewData.Transformation);
+		//
+		//		if(KeyframeDataVector.size()==2)
+		//			for(uint q=0;q<correspondences_inliers.size();q++)
+		//			{
+		//				tmp.cameras.clear();
+		//				//				std::cout<<"1"<<std::endl;
+		//				//				tmp.PointXYZ=KeyframeDataVector.at(second_last).Points.points.at(KeyframeDataVector.at(KeyframeDataVector.size()-2)).matches_backward.at(correspondences_inliers.at(q).queryIdx);
+		//				tmp.PointXYZ=OldData.Points.points.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).queryIdx);
+		//				tmp_camera[0]=0;
+		//				tmp_camera[1]=OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).queryIdx).pt.x;
+		//				tmp_camera[2]=OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).queryIdx).pt.y;
+		//
+		//				circle.x=tmp_camera[1];
+		//				circle.y=tmp_camera[2];
+		//				cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
+		//
+		//				tmp.cameras.push_back(tmp_camera);
+		//				tmp_camera[0]=1;
+		//				tmp_camera[1]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).trainIdx).pt.x;
+		//				tmp_camera[2]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(q)).trainIdx).pt.y;
+		//				circle.x=tmp_camera[1];
+		//				circle.y=tmp_camera[2]+480;
+		//				cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
+		//				tmp.cameras.push_back(tmp_camera);
+		//				tmp.identifier=NewData.matches_backward.at(NewData.correspondences_backward.at(q)).trainIdx;
+		//				SBAPoint.push_back(tmp);
+		//			}
+		//
+		//		int sizeofSBAPoint=SBAPoint.size();
+		//		std::vector<int> updated_points(sizeofSBAPoint,0);
+		////		std::cout<<"updatedpoints size"<<updated_points.size();
+		//		//		std::cout<<"sbapoint.size()"<<SBAPoint.size()<<std::endl;
+		//		if(KeyframeDataVector.size()>2)
+		//		{
+		////			std::cout<<"2"<<std::endl;
+		//
+		//
+		//			for(uint w=0;w<NewData.correspondences_backward.size();w++)
+		//			{
+		//				bool new_inlier=true;
+		//				for(uint q=0;q<sizeofSBAPoint;q++)
+		//					if(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx==SBAPoint.at(q).identifier)
+		//					{
+		//						if(SBAPoint.at(q).cameras.at(SBAPoint.at(q).cameras.size()-1).at(0)!=KeyframeDataVector.size()-1)
+		//						{
+		//							tmp.cameras.clear();
+		//							tmp_camera[0]=KeyframeDataVector.size()-1;
+		//							tmp_camera[1]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx).pt.x;
+		//							tmp_camera[2]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx).pt.y;
+		//							circle.x=tmp_camera[1];
+		//							circle.y=tmp_camera[2]+480;
+		//							cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
+		//							SBAPoint.at(q).cameras.push_back(tmp_camera);
+		//							SBAPoint.at(q).identifier=NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx;
+		//							updated_points.at(q)=1;
+		//						}
+		//						new_inlier=false;
+		//
+		//					}
+		////				std::cout<<"3"<<std::endl;
+		//
+		//				if(new_inlier)
+		//				{
+		//					tmp.cameras.clear();
+		//					tmp_camera[0]=KeyframeDataVector.size()-2;
+		////					std::cout<<"herlor0"<<std::endl;
+		////					std::cout<<"NewData.correspondences_backward.at(w)"<<NewData.correspondences_backward.at(w)<<std::endl;
+		////					std::cout<<"NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx"<<NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx<<std::endl;
+		////					std::cout<<"OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx).pt.x"<<std::endl;
+		//					tmp_camera[1]=OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx).pt.x;
+		//					tmp_camera[2]=OldData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx).pt.y;
+		//					circle.x=tmp_camera[1];
+		//					circle.y=tmp_camera[2];
+		//					cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
+		//					tmp.cameras.push_back(tmp_camera);
+		//					tmp_camera[0]=KeyframeDataVector.size()-1;
+		////					std::cout<<"herlor0.5"<<std::endl;
+		//
+		//					tmp_camera[1]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx).pt.x;
+		//					tmp_camera[2]=NewData.Keypoints.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx).pt.y;
+		//					circle.x=tmp_camera[1];
+		//					circle.y=tmp_camera[2]+480;
+		//					cvCircle( imgadd, circle, 3, colors[5], 3, 8, 0 );
+		//					tmp.cameras.push_back(tmp_camera);
+		//					tmp.PointXYZ=OldData.Points.points.at(NewData.matches_backward.at(NewData.correspondences_backward.at(w)).queryIdx);
+		////					std::cout<<"herlor"<<std::endl;
+		//					tmp.identifier=NewData.matches_backward.at(NewData.correspondences_backward.at(w)).trainIdx;
+		////					std::cout<<"herlor2"<<std::endl;
+		//
+		//					SBAPoint.push_back(tmp);
+		//				}
+		//
+		////				std::cout<<"4"<<std::endl;
+		//
+		//			}
+		//
+		//			std::cout<<"size of sba"<<SBAPoint.size()<<std::endl;
+		//			//			std::cout<<"size of updated"<<updated_points.size()<<std::endl;
+		//
+		//			for(uint a=0;a<updated_points.size();a++)
+		//				if(updated_points.at(a)==0)
+		//				{
+		//					//					std::cout<<"a:"<<a<<std::endl;
+		//					SBAPoint.at(a).identifier=100000;
+		//				}
+		//
+		//			//			std::cout<<"5"<<std::endl;
+		//
+		//		}
+		//
+		////		PointCloud SBAPointCloud;
+		////		SBAPointCloud.header.frame_id="/pgraph";
+		////
+		////		for(uint t=0;t<SBAPoint.size();t++)
+		////		{
+		////			SBAPointCloud.points.push_back(SBAPoint.at(t).PointXYZ);
+		////			if(t%50==0)
+		////			{
+		////				if(SBAPoint.at(t).cameras.size()>2)
+		////				{
+		////					std::cout<<"sbapoint.cameras:"<<std::endl;
+		////					for(uint k=0;k<SBAPoint.at(t).cameras.size();k++)
+		////					{
+		////						std::cout<<"k:"<<k<<std::endl;
+		////						std::cout<<"cameras.at(k).at(0)"<<SBAPoint.at(t).cameras[k][0]<<std::endl;
+		////					}
+		////				}
+		////				else
+		////					std::cout<<"only two at t:"<<t<<std::endl;
+		////
+		////			}
+		////		}
+		////
+		////		KeyFramePoints.publish(SBAPointCloud);
+		////		std::cout<<"size of keyframes:"<<KeyframeDataVector.size()<<std::endl;
+		//
+		//
+		//
+		//
+		//		//		//		else
+		//		//			new_inliers=correspondences_inliers;
+		//		//		std::cout<<"keyframedatavector.size():"<<KeyframeDataVector.size()<<std::endl;
+		//		//		for(uint i=0;i<new_inliers.size();i++)
+		//		//		{
+		//		//			//			std::cout<<"corres.at"<<correspondences_outliers.at(i)<<std::endl;
+		//		//			//			std::cout<<"heiho1"<<std::endl;
+		//		//			tmpsbapointcloud.points.push_back(tmp.points.at(matches_popcount[new_inliers.at(i)].trainIdx));
+		//		//			//			SBAmap.Points.points.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Points.points.at(matches_popcount[correspondences_outliers.at(i)].trainIdx));
+		//		//			//			std::cout<<"heiho2"<<std::endl;
+		//		//			dtorstmp.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor.row(matches_popcount[new_inliers.at(i)].trainIdx));
+		//		//			//			std::cout<<"i:"<<i<<std::endl;
+		//		//		}
+		//		//
+		//		//
+		//		//		prev_corresp=correspondences_inliers;
+		//		//		prev_matches=matches_popcount;
+		//
+		//
+		//		//		SBAmap.Descriptor.push_back(dtorstmp);//KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor);
+		//		//		//			//		pcl::transformPointCloud(tmpsbapointcloud,tmpsbapointcloud,KeyframeDataVector.at(KeyframeDataVector.size()-1).Transformation);
+		//		//		SBAmap.Points.push_back(tmpsbapointcloud);
+		//		//					SBAmap.Descriptor.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor);//KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor);
+		//		//		pcl::transformPointCloud(tmpsbapointcloud,tmpsbapointcloud,KeyframeDataVector.at(KeyframeDataVector.size()-1).Transformation);
+		//		//					SBAmap.Points.push_back(tmp);
+		//
+		//		//		for(uint i=0;i<correspondences_inliers.size();i++)
+		//		//		{
+		//		//			//			std::cout<<"corres.at"<<correspondences_outliers.at(i)<<std::endl;
+		//		//			//			std::cout<<"heiho1"<<std::endl;
+		//		//			SBAmap.Points.points.push_back(tmp.points.at(matches_popcount[correspondences_inliers.at(i)].trainIdx));
+		//		////			SBAmap.Points.points.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Points.points.at(matches_popcount[correspondences_outliers.at(i)].trainIdx));
+		//		//			//			std::cout<<"heiho2"<<std::endl;
+		//		//			SBAmap.Descriptor.push_back(KeyframeDataVector.at(KeyframeDataVector.size()-1).Descriptor.row(matches_popcount[correspondences_outliers.at(i)].trainIdx));
+		//		//			//			std::cout<<"i:"<<i<<std::endl;
+		//		//		}
+		//
+		//		//Publish Camera poses for SBA
+		//		camera_pos.pose.orientation.x=quat_rot.x()/quat_rot.w();
+		//		camera_pos.pose.orientation.y=quat_rot.y()/quat_rot.w();
+		//		camera_pos.pose.orientation.z=quat_rot.z()/quat_rot.w();
+		//		camera_pos.header.frame_id="/pgraph";
+		//		ros::Time tstamp=ros::Time::now();
+		//		camera_pos.header.stamp=tstamp;
+		//		camera_pos.type=visualization_msgs::Marker::CUBE;
+		//		camera_pos.scale.x=1;
+		//		camera_pos.scale.y=1;
+		//		camera_pos.scale.z=1;
+		//		camera_pos.pose.position.x=trans_vec[0];
+		//		camera_pos.pose.position.y=trans_vec[1];
+		//		camera_pos.pose.position.z=trans_vec[2];
+		//		camera_pos.ns = "my_namespace";
+		//		camera_pos.id = 0;
+		//		camera_pos.color.a = 1.0f;
+		//		camera_pos.color.r = 0.0f;
+		//		camera_pos.color.g = 1.0f;
+		//		camera_pos.color.b = 0.0f;
+		//		cam_marker_pub.publish(camera_pos);
+		//		transformPointcloud();
+		////		transformedCloud.publish(kinectTransformedOld);
+		//		std::cout<<"pulished the slam stuff"<<std::endl;
+		//		swap_counter++;
+		//
+		//		if(swap_counter>number_of_swaps)
+		//		{
+		//			doSBAwithMap();
+		//		}
+		//
+		//
 	}
 
 }
@@ -1817,6 +1950,7 @@ void EXTRACT::PosEst()
 			}
 		}
 		transformOld=KeyframeDataVector.at(actual_keyframe).Transformation*transformation_;
+
 
 
 	}
@@ -2929,108 +3063,251 @@ void EXTRACT::createCorrespondingPointcloud(struct FrameData& Data0,PointCloud& 
 //
 //}
 
+void EXTRACT::viconCallback (const geometry_msgs::PoseStamped& viconMsg)
+{
+	std::cout<<"in viconcallback"<<std::endl;
+	quat_vicon.x()=viconMsg.pose.orientation.x;
+	quat_vicon.y()=viconMsg.pose.orientation.y;
+	quat_vicon.z()=viconMsg.pose.orientation.z;
+	quat_vicon.w()=viconMsg.pose.orientation.w;
+
+	pos_vicon[0]=viconMsg.pose.position.x;
+	pos_vicon[1]=viconMsg.pose.position.y;
+	pos_vicon[2]=viconMsg.pose.position.z;
+
+	//			Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
+	//
+	//			Rotz.col(0)[0]=cos(M_PI/2);
+	//			Rotz.col(0)[1]=-sin(M_PI/2);
+	//			Rotz.col(1)[0]=sin(M_PI/2);
+	//			Rotz.col(1)[1]=cos(M_PI/2);
+	//
+	//		//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
+	//		//
+	//		//	Roty.col(0)[0]=cos(-M_PI/2);
+	//		//	Roty.col(0)[2]=sin(-M_PI/2);
+	//		//	Roty.col(2)[0]=-sin(-M_PI/2);
+	//		//	Roty.col(2)[2]=cos(-M_PI/2);
+	//
+	//			Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
+	//			Rotx.col(1)[1]=cos(M_PI/2);
+	//			Rotx.col(1)[2]=-sin(M_PI/2);
+	//			Rotx.col(2)[1]=sin(M_PI/2);
+	//			Rotx.col(2)[2]=cos(M_PI/2);
+	//		Eigen::Matrix3f matrix(quat_vicon);
+	//			btQuaternion tmp_quat(quat_vicon.x(),quat_vicon.y(),quat_vicon.z(),quat_vicon.w());
+	//
+	//			btMatrix3x3 m(tmp_quat);
+
+	//			btMatrix3x3 m(q);
+	//					std::cout<<"m:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
+	//							<<" "<<m.getRow(1)[0]<<" "<<m.getRow(1)[1]<<" "<<m.getRow(1)[2]<<std::endl
+	//							<<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
+	//					double Roll, Pitch, Yaw;
+	//					m.getRPY(Roll, Pitch, Yaw);
+
+
+	Eigen::Quaternion<float> quat_vicon_eigen;
+	quat_vicon_eigen.x()=-quat_vicon.y();
+	quat_vicon_eigen.y()=-quat_vicon.z();
+	quat_vicon_eigen.z()=quat_vicon.x();
+	quat_vicon_eigen.w()=quat_vicon.w();
+
+
+	btQuaternion quat_tmp(quat_vicon.y(),quat_vicon.z(),quat_vicon.x(),quat_vicon.w());
+
+
+	//				quat_tmp=quat_vicon_eigen*quat_tmp;
+
+
+
+	btMatrix3x3 m(quat_tmp);
+
+	std::cout<<"m vicon:"<<m.getRow(0)[0]<<" "<<m.getRow(0)[1]<<" "<<m.getRow(0)[2]<<std::endl
+			<<" "<<m.getRow(1)[0]<<" "<<m.getRow(1)[1]<<" "<<m.getRow(1)[2]<<std::endl
+			<<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
+
+
+
+
+	vicontransform=Eigen::Matrix4f::Identity();
+	//		Eigen::Matrix4f vicontransform;
+
+	Eigen::Vector3f tmp_vec;
+
+	tmp_vec[0]=m.getColumn(0)[0];
+	tmp_vec[1]=m.getColumn(0)[1];
+	tmp_vec[2]=m.getColumn(0)[2];
+
+	vicontransform.block<3,1>(0,0)=tmp_vec;
+
+	tmp_vec[0]=m.getColumn(1)[0];
+	tmp_vec[1]=m.getColumn(1)[1];
+	tmp_vec[2]=m.getColumn(1)[2];
+
+	vicontransform.block<3,1>(0,1)=tmp_vec;
+
+	tmp_vec[0]=m.getColumn(2)[0];
+	tmp_vec[1]=m.getColumn(2)[1];
+	tmp_vec[2]=m.getColumn(2)[2];
+
+	vicontransform.block<3,1>(0,2)=tmp_vec;
+
+	tmp_vec[0]=pos_vicon[1];
+	tmp_vec[1]=pos_vicon[2];
+	tmp_vec[2]=pos_vicon[0];
+
+	vicontransform.block<3,1>(0,3)=tmp_vec;
+
+
+
+}
+
+void EXTRACT::commandCallback (const lcm_mavlink_ros::COMMAND& commandMsg)
+{
+	std::cout<<"in commandcallback"<<std::endl;
+	std::cout<<"commandmsg.command:"<<commandMsg.command<<std::endl;
+	if(commandMsg.command==200)
+		take_vicon=true;
+	if(commandMsg.command==241)
+		reset_map=true;
+}
+
 
 void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 {
 	if(notcopied)
 	{
-	//imuMutex_.lock();
+		//imuMutex_.lock();
 
 		quat_imu.x()=imuMsg.orientation.x;
 		quat_imu.y()=imuMsg.orientation.y;
 		quat_imu.z()=imuMsg.orientation.z;
 		quat_imu.w()=imuMsg.orientation.w;
 
-	btQuaternion q(imuMsg.orientation.x, imuMsg.orientation.y, imuMsg.orientation.z, imuMsg.orientation.w);
-	btMatrix3x3 m(q);
-	double Roll, Pitch, Yaw;
-	m.getRPY(Roll, Pitch, Yaw);
+		btQuaternion q(-imuMsg.orientation.y, -imuMsg.orientation.z,imuMsg.orientation.x,  imuMsg.orientation.w);
+		//		btQuaternion q(imuMsg.orientation.x, -imuMsg.orientation.y,imuMsg.orientation.z,  imuMsg.orientation.w);
+		btMatrix3x3 m(q);
+		double Roll, Pitch, Yaw;
+		m.getRPY(Roll, Pitch, Yaw);
+		//	m.setRPY(Roll,Pitch,0);
 
-	std::cout<<"roll: "<<Roll<<"pitch: "<<Pitch<<"yaw:"<<Yaw<<std::endl;
-
-	Yaw=0;
-
-	Eigen::Matrix4f RotXRoll=Eigen::Matrix4f::Identity();
-	RotXRoll.col(1)[1]=cos(-Roll);
-	RotXRoll.col(1)[2]=-sin(-Roll);
-	RotXRoll.col(2)[1]=sin(-Roll);
-	RotXRoll.col(2)[2]=cos(-Roll);
-
-	std::cout<<"rollxroll\n"<<RotXRoll<<std::endl;
-
-	Eigen::Matrix4f RotYPitch=Eigen::Matrix4f::Identity();
-
-	RotYPitch.col(0)[0]=cos(-Pitch);
-	RotYPitch.col(0)[2]=sin(-Pitch);
-	RotYPitch.col(2)[0]=-sin(-Pitch);
-	RotYPitch.col(2)[2]=cos(-Pitch);
-	std::cout<<"rollpitch\n"<<RotYPitch<<std::endl;
-
-
-	Eigen::Matrix4f RotZYaw=Eigen::Matrix4f::Identity();
-
-	RotZYaw.col(0)[0]=cos(Yaw);
-	RotZYaw.col(0)[1]=-sin(Yaw);
-	RotZYaw.col(1)[0]=sin(Yaw);
-	RotZYaw.col(1)[1]=cos(Yaw);
-	std::cout<<"rollyaw\n"<<RotZYaw<<std::endl;
+		std::cout<<"roll"<<Roll<<"pitch"<<Pitch<<"yaw"<<Yaw<<std::endl;
 
 
 
-	Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
+		Eigen::Vector3f tmp_vec;
 
-	Rotz.col(0)[0]=cos(M_PI/2);
-	Rotz.col(0)[1]=-sin(M_PI/2);
-	Rotz.col(1)[0]=sin(M_PI/2);
-	Rotz.col(1)[1]=cos(M_PI/2);
+		tmp_vec[0]=m.getColumn(0)[0];
+		tmp_vec[1]=m.getColumn(0)[1];
+		tmp_vec[2]=m.getColumn(0)[2];
 
-//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
-//
-//	Roty.col(0)[0]=cos(-M_PI/2);
-//	Roty.col(0)[2]=sin(-M_PI/2);
-//	Roty.col(2)[0]=-sin(-M_PI/2);
-//	Roty.col(2)[2]=cos(-M_PI/2);
+		imuRot.block<3,1>(0,0)=tmp_vec;
 
-	Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
-	Rotx.col(1)[1]=cos(M_PI/2);
-	Rotx.col(1)[2]=-sin(M_PI/2);
-	Rotx.col(2)[1]=sin(M_PI/2);
-	Rotx.col(2)[2]=cos(M_PI/2);
+		tmp_vec[0]=m.getColumn(1)[0];
+		tmp_vec[1]=m.getColumn(1)[1];
+		tmp_vec[2]=m.getColumn(1)[2];
+
+		imuRot.block<3,1>(0,1)=tmp_vec;
+
+		tmp_vec[0]=m.getColumn(2)[0];
+		tmp_vec[1]=m.getColumn(2)[1];
+		tmp_vec[2]=m.getColumn(2)[2];
+
+		imuRot.block<3,1>(0,2)=tmp_vec;
+
+		notcopied=false;
 
 
 
 
+		//	std::cout<<"roll: "<<Roll<<"pitch: "<<Pitch<<"yaw:"<<Yaw<<std::endl;
+		//
+		//	Yaw=0;
+		//
+		//	Eigen::Matrix4f RotXRoll=Eigen::Matrix4f::Identity();
+		//	RotXRoll.col(1)[1]=cos(-Roll);
+		//	RotXRoll.col(1)[2]=sin(-Roll);
+		//	RotXRoll.col(2)[1]=-sin(-Roll);
+		//	RotXRoll.col(2)[2]=cos(-Roll);
+		//
+		////	std::cout<<"rollxroll\n"<<RotXRoll<<std::endl;
+		//
+		//	Eigen::Matrix4f RotYPitch=Eigen::Matrix4f::Identity();
+		//
+		//	RotYPitch.col(0)[0]=cos(Pitch);
+		//	RotYPitch.col(0)[2]=-sin(Pitch);
+		//	RotYPitch.col(2)[0]=sin(Pitch);
+		//	RotYPitch.col(2)[2]=cos(Pitch);
+		////	std::cout<<"rollpitch\n"<<RotYPitch<<std::endl;
+		//
+		//
+		//	Eigen::Matrix4f RotZYaw=Eigen::Matrix4f::Identity();
+		//
+		//	RotZYaw.col(0)[0]=cos(-Yaw);
+		//	RotZYaw.col(0)[1]=sin(-Yaw);
+		//	RotZYaw.col(1)[0]=-sin(-Yaw);
+		//	RotZYaw.col(1)[1]=cos(-Yaw);
+		//	std::cout<<"rollyaw\n"<<RotZYaw<<std::endl;
+		//
+		//	imuRot=RotYPitch.inverse()*imuRot;
+		//
+		//
+		//
+		//	Eigen::Matrix4f Rotz=Eigen::Matrix4f::Identity();
+		//
+		//	Rotz.col(0)[0]=cos(M_PI/2);
+		//	Rotz.col(0)[1]=-sin(M_PI/2);
+		//	Rotz.col(1)[0]=sin(M_PI/2);
+		//	Rotz.col(1)[1]=cos(M_PI/2);
 
-//	btQuaternion q2;
-//	q2.setRPY(Raw2, Pitch2, 0.0);
-//	curr_rotation.setRotation(q2);				//no information about Yaw rotation
+		//	Eigen::Matrix4f Roty=Eigen::Matrix4f::Identity();
+		//
+		//	Roty.col(0)[0]=cos(-M_PI/2);
+		//	Roty.col(0)[2]=sin(-M_PI/2);
+		//	Roty.col(2)[0]=-sin(-M_PI/2);
+		//	Roty.col(2)[2]=cos(-M_PI/2);
 
-//	btTransform change_rot = curr_rotation*prev_rotation.inverse();					//prev_rotation.inverse()*curr_rotation;
-//	btQuaternion temp_rot(change_rot.getRotation());
-
-//	btMatrix3x3 m2(temp_rot);
-//	double Raw2, Pitch2, Yaw2;
-//	m2.getRPY(Raw2, Pitch2, Yaw2);
-	//1st
-	imuRot=Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Eigen::Matrix4f::Identity();
-	std::cout<<"imurot"<<std::endl<<imuRot<<std::endl;
-//	imuRot=Eigen::Matrix4f::Identity();
-//	imuRot.col(0)[0]=(float)cos(Pitch);
-//	imuRot.col(0)[1]=(float)sin(Pitch)*sin(Roll);
-//	imuRot.col(0)[2]=(float)sin(Pitch)*cos(Roll);
-//	imuRot.col(1)[1]=(float)cos(Roll);
-//	imuRot.col(1)[2]=(float)-sin(Roll);
-//	imuRot.col(2)[0]=(float)-sin(Pitch);
-//	imuRot.col(2)[1]=(float)cos(Pitch)*sin(Roll);
-//	imuRot.col(2)[2]=(float)cos(Pitch)*cos(Roll);
+		//	Eigen::Matrix4f Rotx=Eigen::Matrix4f::Identity();
+		//	Rotx.col(1)[1]=cos(M_PI/2);
+		//	Rotx.col(1)[2]=-sin(M_PI/2);
+		//	Rotx.col(2)[1]=sin(M_PI/2);
+		//	Rotx.col(2)[2]=cos(M_PI/2);
 
 
-//	( 	cos(Pitch2),	sin(Pitch2)*sin(Raw2),	sin(Pitch2)*cos(Raw2),	0,
-//				0,		cos(Raw2),		-sin(Raw2),		0,
-//				-sin(Pitch2),	cos(Pitch2)*sin(Raw2),	cos(Pitch2)*cos(Raw2),	0,
-//				0,		0,			0,			1);
 
-/*
+
+
+		//	btQuaternion q2;
+		//	q2.setRPY(Raw2, Pitch2, 0.0);
+		//	curr_rotation.setRotation(q2);				//no information about Yaw rotation
+
+		//	btTransform change_rot = curr_rotation*prev_rotation.inverse();					//prev_rotation.inverse()*curr_rotation;
+		//	btQuaternion temp_rot(change_rot.getRotation());
+
+		//	btMatrix3x3 m2(temp_rot);
+		//	double Raw2, Pitch2, Yaw2;
+		//	m2.getRPY(Raw2, Pitch2, Yaw2);
+		//1st
+		//	imuRot=RotXRoll*RotYPitch*RotZYaw;//Rotz*Rotx*RotXRoll*RotYPitch*RotZYaw;//Eigen::Matrix4f::Identity();
+		//	std::cout<<"imurot"<<std::endl<<imuRot<<std::endl;
+		//	imuRot=Eigen::Matrix4f::Identity();
+		//	imuRot.col(0)[0]=(float)cos(Pitch);
+		//	imuRot.col(0)[1]=(float)sin(Pitch)*sin(Roll);
+		//	imuRot.col(0)[2]=(float)sin(Pitch)*cos(Roll);
+		//	imuRot.col(1)[1]=(float)cos(Roll);
+		//	imuRot.col(1)[2]=(float)-sin(Roll);
+		//	imuRot.col(2)[0]=(float)-sin(Pitch);
+		//	imuRot.col(2)[1]=(float)cos(Pitch)*sin(Roll);
+		//	imuRot.col(2)[2]=(float)cos(Pitch)*cos(Roll);
+
+
+		//	( 	cos(Pitch2),	sin(Pitch2)*sin(Raw2),	sin(Pitch2)*cos(Raw2),	0,
+		//				0,		cos(Raw2),		-sin(Raw2),		0,
+		//				-sin(Pitch2),	cos(Pitch2)*sin(Raw2),	cos(Pitch2)*cos(Raw2),	0,
+		//				0,		0,			0,			1);
+
+		/*
 	//2nd
 	change_rotation_ << 	0,		-cos(Raw2),		sin(Raw2),		0,
 				-sin(Pitch2),	cos(Pitch2)*sin(Raw2),	cos(Pitch2)*cos(Raw2),	0,
@@ -3047,13 +3324,13 @@ void EXTRACT::imuCallback (const sensor_msgs::Imu& imuMsg)
 				sin(Pitch2),	-cos(Pitch2)*sin(Raw2),	-cos(Pitch2)*cos(Raw2),	0,
 				cos(Pitch2),	sin(Pitch2)*sin(Raw2),	sin(Pitch2)*cos(Raw2),	0,
 				0,		0,			0,			1;
-*/
-//	cout<<"change_rotation "<<endl;
-//	cout<<imuRot<<endl;
-//	cout<<"Raw "<<Raw2<<" Pitch "<<Pitch2<<" Yaw "<< Yaw2<<endl;
+		 */
+		//	cout<<"change_rotation "<<endl;
+		//	cout<<imuRot<<endl;
+		//	cout<<"Raw "<<Raw2<<" Pitch "<<Pitch2<<" Yaw "<< Yaw2<<endl;
 
-//	prev_rotation = curr_rotation;
-	//imuMutex_.unlock();
+		//	prev_rotation = curr_rotation;
+		//imuMutex_.unlock();
 	}
 }
 

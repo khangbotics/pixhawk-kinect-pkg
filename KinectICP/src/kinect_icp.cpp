@@ -11,7 +11,7 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "/home/pixhawk/3dPhotography/mavlink-ros-pkg/lcm_mavlink_ros/msg_gen/cpp/include/lcm_mavlink_ros/COMMAND.h"
+#include "KinectICP/COMMAND.h"
 #include <iostream>
 #include <vector>
 #include <sensor_msgs/Imu.h>

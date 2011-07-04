@@ -242,7 +242,7 @@ Eigen::Matrix4f PointCloudRegistration::getOverlapTransformation()
   }
   else
   {
-        int iter = 15;
+        int iter = 10;
         Eigen::Matrix4f transformation;
         if(counter_>2)
                 transformation = final_transformation_;
@@ -697,7 +697,7 @@ void PointCloudRegistration::pointcloudRegistrationCallBack(const sensor_msgs::P
                 //{
 
                         ROS_INFO("Received point cloud number: %d", counter_);
-                        pointcloud2_current_ = convertFromMsgToPointCloud(pointcloud_msg,0.2);
+                        pointcloud2_current_ = convertFromMsgToPointCloud(pointcloud_msg,0.25);
 
                         kdtree_.setInputCloud(boost::make_shared< pcl::PointCloud < pcl::PointXYZRGB> > (pointcloud2_merged_));
                         //odtree_.addPointsFromInputCloud ();
@@ -777,7 +777,7 @@ void PointCloudRegistration::pointcloudRegistrationCallBack(const sensor_msgs::P
                         //{
                                 pcl::transformPointCloud(pointcloud2_current_, pointcloud2_transformed_, final_transformation_);
                                 pointcloud2_merged_ += pointcloud2_transformed_;
-                                publishPointCloud(pointcloud2_transformed_);
+                                //publishPointCloud(pointcloud2_transformed_);
                         //}
 /*
                         ttImage = 0.;

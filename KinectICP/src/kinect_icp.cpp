@@ -513,20 +513,20 @@ void PointCloudRegistration::imuCallback (const sensor_msgs::Imu& imuMsg)
         m.getRPY(Raw, Pitch, Yaw);
         cout<<"Raw "<<Raw<<" Pitch "<<Pitch<<" Yaw "<< Yaw<<endl;
         btQuaternion q2;
-        q2.setRPY(Raw, Pitch, 0.0);
+        q2.setRPY(Raw, Pitch, Yaw);
         curr_rotation_.setRotation(q2);				//no information about Yaw rotation
 
-        btTransform change_rot = curr_rotation_*prev_rotation_.inverse();					//prev_rotation_.inverse()*curr_rotation_;
+        btTransform change_rot = prev_rotation_.inverse()*curr_rotation_;					//curr_rotation_*prev_rotation_.inverse();
         btQuaternion temp_rot(change_rot.getRotation());
 
         btMatrix3x3 m2(temp_rot);
         double Raw2, Pitch2, Yaw2;
         m2.getRPY(Raw2, Pitch2, Yaw2);
         //1st
-        change_rotation_ << 	cos(Raw2),		-sin(Raw2),			0,		0,
-                                cos(Pitch2)*sin(Raw2),	cos(Pitch2)*cos(Raw2),		-sin(Pitch2),	0,
-                                sin(Pitch2)*sin(Raw2),	sin(Pitch2)*cos(Raw2),		cos(Pitch2),	0,
-                                0,			0,				0,		1;
+        change_rotation_ << 	sin(Yaw2)*sin(Pitch2)*sin(Raw2)+cos(Yaw2)*cos(Raw2),		sin(Yaw2)*sin(Pitch2)*cos(Raw2)-cos(Yaw2)*sin(Raw2),		sin(Yaw2)*cos(Pitch),		0,
+                                cos(Pitch2)*sin(Raw2),						cos(Pitch2)*cos(Raw2),						-sin(Pitch2),			0,
+                                COS(Yaw2)*sin(Pitch2)*sin(Raw2)-sin(Yaw2)*cos(Raw2),		sin(Pitch2)*cos(Raw2),						cos(Pitch2),			0,
+                                0,								0,								0,				1;
 
 
         //2nd

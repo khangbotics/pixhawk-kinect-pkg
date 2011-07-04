@@ -525,7 +525,7 @@ void PointCloudRegistration::imuCallback (const sensor_msgs::Imu& imuMsg)
         //1st
         change_rotation_ << 	sin(Yaw2)*sin(Pitch2)*sin(Raw2)+cos(Yaw2)*cos(Raw2),		sin(Yaw2)*sin(Pitch2)*cos(Raw2)-cos(Yaw2)*sin(Raw2),		sin(Yaw2)*cos(Pitch),		0,
                                 cos(Pitch2)*sin(Raw2),						cos(Pitch2)*cos(Raw2),						-sin(Pitch2),			0,
-                                COS(Yaw2)*sin(Pitch2)*sin(Raw2)-sin(Yaw2)*cos(Raw2),		sin(Pitch2)*cos(Raw2),						cos(Pitch2),			0,
+                                cos(Yaw2)*sin(Pitch2)*sin(Raw2)-sin(Yaw2)*cos(Raw2),		sin(Pitch2)*cos(Raw2),						cos(Pitch2),			0,
                                 0,								0,								0,				1;
 
 

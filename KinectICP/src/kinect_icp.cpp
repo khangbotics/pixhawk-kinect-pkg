@@ -33,7 +33,7 @@
 #include "pcl/filters/voxel_grid.h" //for downsampling the point cloud
 
 #include "pcl/kdtree/kdtree_flann.h" //for the kdtree
-//#include "pcl/octree/octree.h"	//for octree
+//#include "pcl/octree/octree.h" //for octree
 
 #include "pcl/registration/transforms.h" //for the transformation function
 #include <pcl/features/normal_3d_omp.h>
@@ -91,9 +91,9 @@ class PointCloudRegistration
     bool take_vicon;
     bool reset_map;
     //pcl::IterativeClosestPointCorrespondencesCheck<pcl::PointXYZRGB, pcl::PointXYZRGB> icp_; // for icp
-    pcl::KdTreeFLANN<pcl::PointXYZRGB> kdtree_;  // for kdtree
+    pcl::KdTreeFLANN<pcl::PointXYZRGB> kdtree_; // for kdtree
 
-    //pcl::octree::OctreePointCloud<PointXYZRGB> octree_(128.0f); //for octree	float resolution = 128.0f;
+    //pcl::octree::OctreePointCloud<PointXYZRGB> octree_(128.0f); //for octree float resolution = 128.0f;
 
     bool firstCloudReceived_, secondCloudReceived_;
     pcl::PointCloud<pcl::PointXYZRGB> pointcloud2_current_, pointcloud2_merged_, pointcloud2_transformed_;
@@ -180,11 +180,11 @@ Eigen::Matrix4f Ransac(const pcl::PointCloud<pcl::PointXYZRGB> & PointCloud1, co
 
                         int id = rand() % (PointCloud1.size());
 
-                        if((id - ealier_id) == 0)	// checking that the same point is not drawn twice
+                        if((id - ealier_id) == 0) // checking that the same point is not drawn twice
                                 break;
 
                         Eigen::Vector3f from(PointCloud1.points[id].x,PointCloud1.points[id].y,PointCloud1.points[id].z);
-                        Eigen::Vector3f   to(PointCloud2.points[id].x,PointCloud2.points[id].y,PointCloud2.points[id].z);
+                        Eigen::Vector3f to(PointCloud2.points[id].x,PointCloud2.points[id].y,PointCloud2.points[id].z);
 
                         tfc.add(from, to);
                         ealier_id = id;
@@ -340,49 +340,49 @@ void PointCloudRegistration::publishPointCloud(pcl::PointCloud<pcl::PointXYZRGB>
 //------------------------------------------------------------------------------------------------------------------------------------------//
 void PointCloudRegistration::publishPose(const btTransform& transform, const ros::Time& time, const std::string poseFrame_, double height)
 {
-  geometry_msgs::Pose2D pose;
-  tfToPose2D(transform, pose);
-  posePublisher_.publish(pose);
+geometry_msgs::Pose2D pose;
+tfToPose2D(transform, pose);
+posePublisher_.publish(pose);
 
-  geometry_msgs::PoseStamped poseStmpd;
-  geometry_msgs::PoseStamped poseStmpd_mavlink_;
+geometry_msgs::PoseStamped poseStmpd;
+geometry_msgs::PoseStamped poseStmpd_mavlink_;
 
-  poseStmpd.header.stamp = time;
-  poseStmpd.header.frame_id = poseFrame_;
-  poseStmpd.pose.position.x = pose.x;
-  poseStmpd.pose.position.y = pose.y;
-  poseStmpd.pose.position.z = height;
- //ROS_INFO("Position x: %f",poseStmpd.pose.position.x);
- //ROS_INFO("Position y: %f",poseStmpd.pose.position.y);
- //ROS_INFO("Position z: %f",poseStmpd.pose.position.z);
-  btQuaternion rotation;
+poseStmpd.header.stamp = time;
+poseStmpd.header.frame_id = poseFrame_;
+poseStmpd.pose.position.x = pose.x;
+poseStmpd.pose.position.y = pose.y;
+poseStmpd.pose.position.z = height;
+//ROS_INFO("Position x: %f",poseStmpd.pose.position.x);
+//ROS_INFO("Position y: %f",poseStmpd.pose.position.y);
+//ROS_INFO("Position z: %f",poseStmpd.pose.position.z);
+btQuaternion rotation;
 
-  rotation.setRPY(0.0, 0.0, pose.theta);
-  poseStmpd.pose.orientation.x = rotation.getX();
-  poseStmpd.pose.orientation.y = rotation.getY();
-  poseStmpd.pose.orientation.z = rotation.getZ();
-  poseStmpd.pose.orientation.w = rotation.getW();
+rotation.setRPY(0.0, 0.0, pose.theta);
+poseStmpd.pose.orientation.x = rotation.getX();
+poseStmpd.pose.orientation.y = rotation.getY();
+poseStmpd.pose.orientation.z = rotation.getZ();
+poseStmpd.pose.orientation.w = rotation.getW();
 
-  ros::Time time1 = poseStmpd.header.stamp;
-  double time1_ =  time1.toSec();
-  //ROS_INFO("synchronized, timestamp pose1: %f", time1_);
+ros::Time time1 = poseStmpd.header.stamp;
+double time1_ = time1.toSec();
+//ROS_INFO("synchronized, timestamp pose1: %f", time1_);
 
-  pose3DPublisher_.publish(poseStmpd);
+pose3DPublisher_.publish(poseStmpd);
 
-  poseStmpd_mavlink_ = poseStmpd;
-  poseStmpd_mavlink_.header.frame_id = "world1";
-  poseStmpd_mavlink_.header.stamp=ros::Time::now();
-  poseStmpd_mavlink_.pose.position.z = -height;
-  poseStmpd_mavlink_.pose.position.x = -pose.x;
+poseStmpd_mavlink_ = poseStmpd;
+poseStmpd_mavlink_.header.frame_id = "world1";
+poseStmpd_mavlink_.header.stamp=ros::Time::now();
+poseStmpd_mavlink_.pose.position.z = -height;
+poseStmpd_mavlink_.pose.position.x = -pose.x;
 
-  rotation.setRPY(0.0, 0.0, M_PI-pose.theta);
-  poseStmpd_mavlink_.pose.orientation.x = rotation.getX();
-  poseStmpd_mavlink_.pose.orientation.y = rotation.getY();
-  poseStmpd_mavlink_.pose.orientation.z = rotation.getZ();
-  poseStmpd_mavlink_.pose.orientation.w = rotation.getW();
+rotation.setRPY(0.0, 0.0, M_PI-pose.theta);
+poseStmpd_mavlink_.pose.orientation.x = rotation.getX();
+poseStmpd_mavlink_.pose.orientation.y = rotation.getY();
+poseStmpd_mavlink_.pose.orientation.z = rotation.getZ();
+poseStmpd_mavlink_.pose.orientation.w = rotation.getW();
 
 
-  poseStampedtoMAVLINK_pub_.publish(poseStmpd_mavlink_);
+poseStampedtoMAVLINK_pub_.publish(poseStmpd_mavlink_);
 
 }
 */
@@ -494,7 +494,7 @@ void PointCloudRegistration::run()
 
 
   //to fly
-  imuSubscriber_ = nh_.subscribe ("/fromMAVLINK/Imu",  10, &PointCloudRegistration::imuCallback,  this);
+  imuSubscriber_ = nh_.subscribe ("/fromMAVLINK/Imu", 10, &PointCloudRegistration::imuCallback, this);
   pointcloud_subscriber_ = nh_.subscribe("/camera/rgb/points", 10, &PointCloudRegistration::pointcloudRegistrationCallBack, this);
   viconSubscriber_= nh_.subscribe("/fromMAVLINK/Vicon",10,&PointCloudRegistration::viconCallback,this);
   commandSubscriber_= nh_.subscribe("/fromMAVLINK/COMMAND",10,&PointCloudRegistration::commandCallback,this);
@@ -514,32 +514,32 @@ void PointCloudRegistration::imuCallback (const sensor_msgs::Imu& imuMsg)
         cout<<"Raw "<<Raw<<" Pitch "<<Pitch<<" Yaw "<< Yaw<<endl;
         btQuaternion q2;
         q2.setRPY(Raw, Pitch, Yaw);
-        curr_rotation_.setRotation(q2);				//no information about Yaw rotation
+        curr_rotation_.setRotation(q2); //no information about Yaw rotation
 
-        btTransform change_rot = prev_rotation_.inverse()*curr_rotation_;					//curr_rotation_*prev_rotation_.inverse();
+        btTransform change_rot = prev_rotation_.inverse()*curr_rotation_; //curr_rotation_*prev_rotation_.inverse();
         btQuaternion temp_rot(change_rot.getRotation());
 
         btMatrix3x3 m2(temp_rot);
         double Raw2, Pitch2, Yaw2;
         m2.getRPY(Raw2, Pitch2, Yaw2);
         //1st
-        change_rotation_ << 	sin(Yaw2)*sin(Pitch2)*sin(Raw2)+cos(Yaw2)*cos(Raw2),		sin(Yaw2)*sin(Pitch2)*cos(Raw2)-cos(Yaw2)*sin(Raw2),		sin(Yaw2)*cos(Pitch),		0,
-                                cos(Pitch2)*sin(Raw2),						cos(Pitch2)*cos(Raw2),						-sin(Pitch2),			0,
-                                cos(Yaw2)*sin(Pitch2)*sin(Raw2)-sin(Yaw2)*cos(Raw2),		sin(Pitch2)*cos(Raw2),						cos(Pitch2),			0,
-                                0,								0,								0,				1;
+        change_rotation_ << sin(Yaw2)*sin(Pitch2)*sin(Raw2)+cos(Yaw2)*cos(Raw2), sin(Yaw2)*sin(Pitch2)*cos(Raw2)-cos(Yaw2)*sin(Raw2), sin(Yaw2)*cos(Pitch), 0,
+                                cos(Pitch2)*sin(Raw2), cos(Pitch2)*cos(Raw2), -sin(Pitch2), 0,
+                                cos(Yaw2)*sin(Pitch2)*sin(Raw2)-sin(Yaw2)*cos(Raw2), sin(Pitch2)*cos(Raw2), cos(Pitch2), 0,
+                                0, 0, 0, 1;
 
 
         //2nd
 /*
-        change_rotation_ << 	cos(Pitch2),	sin(Pitch2)*sin(Raw2),	sin(Pitch2)*cos(Raw2),	0,
-                                0,		cos(Raw2),		-sin(Raw2),		0,
-                                -sin(Pitch2),	cos(Pitch2)*sin(Raw2),	cos(Pitch2)*cos(Raw2),	0,
-                                0,		0,			0,			1;
+change_rotation_ << cos(Pitch2), sin(Pitch2)*sin(Raw2), sin(Pitch2)*cos(Raw2), 0,
+0, cos(Raw2), -sin(Raw2), 0,
+-sin(Pitch2), cos(Pitch2)*sin(Raw2), cos(Pitch2)*cos(Raw2), 0,
+0, 0, 0, 1;
 
 
-        cout<<"change_rotation "<<counter_<<endl;
-        cout<<change_rotation_<<endl;
-        cout<<"Raw "<<Raw2<<" Pitch "<<Pitch2<<" Yaw "<< Yaw2<<endl;
+cout<<"change_rotation "<<counter_<<endl;
+cout<<change_rotation_<<endl;
+cout<<"Raw "<<Raw2<<" Pitch "<<Pitch2<<" Yaw "<< Yaw2<<endl;
 */
         prev_rotation_ = curr_rotation_;
 
@@ -593,7 +593,7 @@ void PointCloudRegistration::viconCallback (const geometry_msgs::PoseStamped& vi
                         <<" "<<m.getRow(2)[0]<<" "<<m.getRow(2)[1]<<" "<<m.getRow(2)[2]<<std::endl;
 
         vicontransform=Eigen::Matrix4f::Identity();
-        //		Eigen::Matrix4f vicontransform;
+        // Eigen::Matrix4f vicontransform;
 
         Eigen::Vector3f tmp_vec;
 
@@ -620,11 +620,11 @@ void PointCloudRegistration::viconCallback (const geometry_msgs::PoseStamped& vi
         tmp_vec[2]=pos_vicon[0];
 
         vicontransform.block<3,1>(0,3)=tmp_vec;
-/*	if(take_vicon==true)
-        {
-                cout<<"vicontransform "<<endl;
-                cout<<vicontransform<<endl;
-        }
+/* if(take_vicon==true)
+{
+cout<<"vicontransform "<<endl;
+cout<<vicontransform<<endl;
+}
 */
 }
 
@@ -704,12 +704,12 @@ void PointCloudRegistration::pointcloudRegistrationCallBack(const sensor_msgs::P
 
                         //Now we get the transformation from the overlapped regions of the 2 point clouds
 
-                //	cout<<"1st final_transformation_ "<<endl;
-                //	cout<<final_transformation_<<endl;
-                //	Eigen::Vector4d translation;
-                //	translation << final_transformation_(0,3), final_transformation_(1,3), final_transformation_(2,3), final_transformation_(3,3);
+                // cout<<"1st final_transformation_ "<<endl;
+                // cout<<final_transformation_<<endl;
+                // Eigen::Vector4d translation;
+                // translation << final_transformation_(0,3), final_transformation_(1,3), final_transformation_(2,3), final_transformation_(3,3);
 
-                        final_transformation_ = final_transformation_*change_rotation_;			//			change_rotation_*final_transformation_;
+                        final_transformation_ = final_transformation_*change_rotation_; // change_rotation_*final_transformation_;
                         ttImage = 0.;
                         ttImage = (double)cvGetTickCount();
                         final_transformation_= getOverlapTransformation();
@@ -719,26 +719,26 @@ void PointCloudRegistration::pointcloudRegistrationCallBack(const sensor_msgs::P
                         double s = 1./(cvGetTickFrequency()*1000.);
                         ROS_INFO("pointcloud callback time:\t%6.1f ms\n", ttImage*s);
 
-                        cout<<final_transformation_<<endl;
-                        Eigen::Matrix3f	rot;
+                        //cout<<final_transformation_<<endl;
+                        Eigen::Matrix3f rot;
                         //rot = final_transformation_.block(0,0,2,2);
 
                         Eigen::Matrix4f base_to_cam;
-                        base_to_cam <<  0,	1,	0,	0,
-                                        0,	0,	1,	0,
-                                        1,	0,	0,	0,
-                                        0,	0,	0,	1;
+                        base_to_cam << 0, 1, 0, 0,
+                                        0, 0, 1, 0,
+                                        1, 0, 0, 0,
+                                        0, 0, 0, 1;
                         Eigen::Matrix4f cam_to_world;
                         cam_to_world = final_transformation_;
                         Eigen::Matrix4f base_to_world;
                         rot = (base_to_cam.block(0,0,3,3)).inverse()*(cam_to_world.block(0,0,3,3))*(base_to_cam.block(0,0,3,3));
                         //cout<<rot<<endl;
-                        base_to_world = final_transformation_;			//(cam_to_world*base_to_cam).inverse();	//(final_transformation_.inverse())*(temp.inverse());
+                        base_to_world = final_transformation_; //(cam_to_world*base_to_cam).inverse(); //(final_transformation_.inverse())*(temp.inverse());
                         base_to_world.block(0,0,3,3) = rot;
                         /*
-                                base_to_cam.inverse()*cam_to_world   --> roll-pitch invert
-                                cam_to_world*base_to_cam ----> wrong
-                        */
+base_to_cam.inverse()*cam_to_world --> roll-pitch invert
+cam_to_world*base_to_cam ----> wrong
+*/
                         Yaw_ = atan2(base_to_world(1,0),base_to_world(0,0));
                         Pitch_ = atan2(-base_to_world(2,0), sqrt(base_to_world(2,1)*base_to_world(2,1)+base_to_world(2,2)*base_to_world(2,2)));
                         Roll_ = atan2(base_to_world(2,1),base_to_world(2,2));
@@ -758,17 +758,17 @@ void PointCloudRegistration::pointcloudRegistrationCallBack(const sensor_msgs::P
                         //cout<<"Roll: "<<Roll_<<", Pitch: "<<Pitch_<<" Yaw: "<<Yaw_<<endl;
 
                           poseStampedtoMAVLINK_pub_.publish(poseStmpd_mavlink_);
-                /*	final_transformation_(0,3) = translation(0);
-                        final_transformation_(1,3) = translation(1);
-                        final_transformation_(2,3) = translation(2);
-                        final_transformation_(3,3) = translation(3);
-                */
-                //	cout<<"middle final_transformation_ "<<endl;
-                //	cout<<final_transformation_<<endl;
+                /* final_transformation_(0,3) = translation(0);
+final_transformation_(1,3) = translation(1);
+final_transformation_(2,3) = translation(2);
+final_transformation_(3,3) = translation(3);
+*/
+                // cout<<"middle final_transformation_ "<<endl;
+                // cout<<final_transformation_<<endl;
 
                         final_transformation_= getOverlapTransformation();
-                //	cout<<"2nd final_transformation_ "<<endl;
-                //	cout<<final_transformation_<<endl;
+                // cout<<"2nd final_transformation_ "<<endl;
+                // cout<<final_transformation_<<endl;
 
 
 
@@ -780,36 +780,36 @@ void PointCloudRegistration::pointcloudRegistrationCallBack(const sensor_msgs::P
                                 //publishPointCloud(pointcloud2_transformed_);
                         //}
 /*
-                        ttImage = 0.;
-                        ttImage = (double)cvGetTickCount();
-                        pointcloud2_current_publish_ = convertFromMsgToPointCloud(pointcloud_msg,0.05);
-                        //stop measuring time
-                        ttImage = (double)cvGetTickCount() - ttImage;
-                        //print in milliseconds
-                        double s = 1./(cvGetTickFrequency()*1000.);
+ttImage = 0.;
+ttImage = (double)cvGetTickCount();
+pointcloud2_current_publish_ = convertFromMsgToPointCloud(pointcloud_msg,0.05);
+//stop measuring time
+ttImage = (double)cvGetTickCount() - ttImage;
+//print in milliseconds
+double s = 1./(cvGetTickFrequency()*1000.);
 
-                        ROS_INFO("publish time:\t%6.1f ms\n", ttImage*s);
-                        pcl::transformPointCloud(pointcloud2_current_publish_, pointcloud2_transformed_publish_, final_transformation_);
-                        //pointcloud2_merged_publish_ += pointcloud2_transformed_publish_;
-                        //publishPointCloud(pointcloud2_merged_publish_);
-                        publishPointCloud(pointcloud2_transformed_publish_);
+ROS_INFO("publish time:\t%6.1f ms\n", ttImage*s);
+pcl::transformPointCloud(pointcloud2_current_publish_, pointcloud2_transformed_publish_, final_transformation_);
+//pointcloud2_merged_publish_ += pointcloud2_transformed_publish_;
+//publishPointCloud(pointcloud2_merged_publish_);
+publishPointCloud(pointcloud2_transformed_publish_);
 */
 
 
 
                 //Downsample if pointcloud2_merged_ > 50,000 or pointcloud2_merged_publish_.size()>500000
-/*		if(pointcloud2_merged_.size()>1000000000)
-                {
-                        pcl::PointCloud<pcl::PointXYZRGB>& pointcloud2_merged_1 = pointcloud2_merged_, pointcloud2_merged_2 = pointcloud2_merged_;
-                        downSample(pointcloud2_merged_1, pointcloud2_merged_2);
-                        pointcloud2_merged_ = pointcloud2_merged_2;
-                }
-                if(pointcloud2_merged_publish_.size()>100000000000)
-                {
-                        pcl::PointCloud<pcl::PointXYZRGB>& pointcloud2_merged_publish_1 = pointcloud2_merged_publish_, pointcloud2_merged_publish_2 = pointcloud2_merged_publish_;
-                        downSample(pointcloud2_merged_publish_1, pointcloud2_merged_publish_2);
-                        pointcloud2_merged_publish_ = pointcloud2_merged_publish_2;
-                }
+/* if(pointcloud2_merged_.size()>1000000000)
+{
+pcl::PointCloud<pcl::PointXYZRGB>& pointcloud2_merged_1 = pointcloud2_merged_, pointcloud2_merged_2 = pointcloud2_merged_;
+downSample(pointcloud2_merged_1, pointcloud2_merged_2);
+pointcloud2_merged_ = pointcloud2_merged_2;
+}
+if(pointcloud2_merged_publish_.size()>100000000000)
+{
+pcl::PointCloud<pcl::PointXYZRGB>& pointcloud2_merged_publish_1 = pointcloud2_merged_publish_, pointcloud2_merged_publish_2 = pointcloud2_merged_publish_;
+downSample(pointcloud2_merged_publish_1, pointcloud2_merged_publish_2);
+pointcloud2_merged_publish_ = pointcloud2_merged_publish_2;
+}
 */
         }
 

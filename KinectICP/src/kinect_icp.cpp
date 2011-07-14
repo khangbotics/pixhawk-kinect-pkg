@@ -719,7 +719,7 @@ void PointCloudRegistration::pointcloudRegistrationCallBack(const sensor_msgs::P
                         double s = 1./(cvGetTickFrequency()*1000.);
                         ROS_INFO("pointcloud callback time:\t%6.1f ms\n", ttImage*s);
 
-                        //cout<<final_transformation_<<endl;
+                        cout<<final_transformation_<<endl;
                         Eigen::Matrix3f rot;
                         //rot = final_transformation_.block(0,0,2,2);
 
@@ -731,7 +731,8 @@ void PointCloudRegistration::pointcloudRegistrationCallBack(const sensor_msgs::P
                         Eigen::Matrix4f cam_to_world;
                         cam_to_world = final_transformation_;
                         Eigen::Matrix4f base_to_world;
-                        rot = (base_to_cam.block(0,0,3,3)).inverse()*(cam_to_world.block(0,0,3,3))*(base_to_cam.block(0,0,3,3));
+                        //rot = (base_to_cam.block(0,0,3,3)).inverse()*(cam_to_world.block(0,0,3,3))*(base_to_cam.block(0,0,3,3));
+			rot = (base_to_cam.block(0,0,3,3)).inverse()*(cam_to_world.block(0,0,3,3))*(base_to_cam.block(0,0,3,3));
                         //cout<<rot<<endl;
                         base_to_world = final_transformation_; //(cam_to_world*base_to_cam).inverse(); //(final_transformation_.inverse())*(temp.inverse());
                         base_to_world.block(0,0,3,3) = rot;
